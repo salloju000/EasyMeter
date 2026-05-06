@@ -14,18 +14,31 @@ const fmtMonth = (m: string) => {
   const parts = m.split("-").map(Number);
   const [y, mm, dd] = parts;
   if (dd) {
-    // Full date YYYY-MM-DD
     return new Date(y, (mm || 1) - 1, dd).toLocaleDateString("en-IN", { day: "2-digit", month: "long", year: "numeric" });
   }
-  // Legacy YYYY-MM
   return new Date(y, (mm || 1) - 1, 1).toLocaleDateString("en-IN", { month: "long", year: "numeric" });
 };
+
+function getLegacyNumber(obj: unknown, key: string): number | undefined {
+  if (typeof obj !== "object" || obj === null) return undefined;
+  const value = (obj as Record<string, unknown>)[key];
+  return typeof value === "number" ? value : undefined;
+}
 
 export const BillView = forwardRef<HTMLDivElement, Props>(({ bill }, ref) => {
   const sym = bill.tariff.currencySymbol || "₹";
   const c = bill.calculation;
+  const energyCharge = c.energyCharge ?? getLegacyNumber(c, "energyCharges") ?? 0;
+  const interestOnED = c.interestOnED ?? 0;
+  const surcharge = c.surcharge ?? 0;
+  const lossGain = c.lossGain ?? 0;
+  const extras = Array.isArray(c.extras)
+    ? c.extras.filter((e) => e.label.trim().toLowerCase() !== "electricity duty")
+    : [];
+  const lossGainLabel = lossGain > 0 ? "Loss (Debit)" : "Gain (Credit)";
+
   return (
-    <div ref={ref} className="bill-paper mx-auto w-full max-w-[760px] overflow-hidden rounded-2xl">
+    <div ref={ref} className="bill-paper mx-auto w-full max-w-[760px] overflow-hidden rounded-2xl bg-white shadow-lg">
       {/* Header band */}
       <div className="relative bg-gradient-hero px-6 py-5 text-primary-foreground">
         <div className="flex items-start justify-between gap-4">
@@ -36,7 +49,7 @@ export const BillView = forwardRef<HTMLDivElement, Props>(({ bill }, ref) => {
             <div>
               <div className="font-display text-xl font-bold leading-tight">EasyMeter</div>
               <div className="text-[11px] uppercase tracking-[0.22em] opacity-80">
-                Tenant Electricity Bill
+                Electricity Statement
               </div>
             </div>
           </div>
@@ -52,49 +65,69 @@ export const BillView = forwardRef<HTMLDivElement, Props>(({ bill }, ref) => {
 
       {/* Tenant + meta grid */}
       <div className="grid grid-cols-2 gap-px bg-paper-line">
-        <Cell label="Consumer" value={bill.tenantName} />
+        <Cell label="Consumer Name" value={bill.tenantName} />
         <Cell label="Meter ID" value={bill.meterId || "—"} mono />
-        <Cell label="Billing Period" value={fmtMonth(bill.billingMonth)} />
+        <Cell label="Billing Cycle" value={fmtMonth(bill.billingMonth)} />
         <Cell label="Due Date" value={fmtDate(bill.dueDate)} />
         <Cell
-          label="Status"
+          label="Payment Status"
           value={bill.paymentStatus === "paid" ? "PAID" : "UNPAID"}
           tone={bill.paymentStatus === "paid" ? "success" : "warning"}
         />
       </div>
 
       {/* Readings */}
-      <div className="grid grid-cols-3 gap-px bg-paper-line">
+      <div className="grid grid-cols-3 gap-px bg-paper-line border-b border-paper-line">
         <ReadingCell label="Previous" value={bill.previousReading} />
-        <ReadingCell label="Current" value={bill.currentReading} highlight />
-        <ReadingCell label="Units" value={c.unitsConsumed} accent suffix=" kWh" />
+        <ReadingCell label="Present" value={bill.currentReading} highlight />
+        <ReadingCell label="Usage" value={c.unitsConsumed} accent suffix=" kWh" />
       </div>
 
       {/* Bill Particulars */}
       <div className="bg-paper px-6 py-5">
         <div className="mb-3 flex items-baseline justify-between">
           <h3 className="font-display text-sm font-bold uppercase tracking-wider text-ink">
-            Bill Particulars
+            Breakdown
           </h3>
           <span className="text-[11px] uppercase tracking-wider text-ink-muted">
             {c.categoryId || "Domestic"} · {formatUnits(c.totalUnits ?? c.unitsConsumed ?? 0)}
           </span>
         </div>
         <div className="grid gap-2 rounded-lg border border-paper-line bg-card px-4 py-4 font-mono-bill text-[12px]">
-          <ChargeRow label="Energy Charges" value={c.energyCharge ?? (c as any).energyCharges ?? 0} sym={sym} />
+          {/* Energy Breakdown */}
+          {c.breakdown && c.breakdown.length > 0 ? (
+            <div className="mb-2 space-y-1 border-b border-paper-line pb-2">
+              <div className="mb-1 text-[10px] uppercase tracking-wider text-ink-muted">Energy Breakdown</div>
+              {c.breakdown.map((b, idx) => (
+                <div key={idx} className="flex justify-between text-[11px]">
+                  <span className="text-ink-muted">
+                    {b.units} units @ {sym}{b.rate} ({b.from}{b.to ? `-${b.to}` : "+"})
+                  </span>
+                  <span className="font-semibold text-ink">{formatMoney(b.amount, sym)}</span>
+                </div>
+              ))}
+              <div className="flex justify-between pt-1 font-bold">
+                <span>Total Energy Charges</span>
+                <span>{formatMoney(energyCharge, sym)}</span>
+              </div>
+            </div>
+          ) : (
+            <ChargeRow label="Energy Charges" value={energyCharge} sym={sym} />
+          )}
+
           <ChargeRow label="Fixed Charges" value={c.fixedCharge ?? 0} sym={sym} />
           <ChargeRow label="Customer Charges" value={c.customerCharge ?? 0} sym={sym} />
           <ChargeRow label="Electricity Duty" value={c.electricityDuty ?? 0} sym={sym} />
-          {((c as any).interestOnED ?? 0) > 0 && (
-            <ChargeRow label="Interest on ED" value={(c as any).interestOnED} sym={sym} />
+          {interestOnED > 0 && (
+            <ChargeRow label="Interest on ED" value={interestOnED} sym={sym} />
           )}
-          {((c as any).surcharge ?? 0) !== 0 && (
-            <ChargeRow label="Surcharges" value={(c as any).surcharge} sym={sym} />
+          {surcharge !== 0 && (
+            <ChargeRow label="Surcharges" value={surcharge} sym={sym} />
           )}
-          {((c as any).lossGain ?? 0) !== 0 && (
-            <ChargeRow label={(c as any).lossGain > 0 ? "Loss (Debit)" : "Gain (Credit)"} value={(c as any).lossGain} sym={sym} tone={(c as any).lossGain < 0 ? "success" : undefined} />
+          {lossGain !== 0 && (
+            <ChargeRow label={lossGainLabel} value={lossGain} sym={sym} tone={lossGain < 0 ? "success" : undefined} />
           )}
-          {(c as any).extras?.map((e: any) => (
+          {extras.map((e) => (
             <ChargeRow key={e.id} label={e.label} value={e.amount} sym={sym} />
           ))}
           {c.lateFee > 0 && <ChargeRow label="Late Fee" value={c.lateFee} sym={sym} tone="warning" />}
@@ -104,7 +137,7 @@ export const BillView = forwardRef<HTMLDivElement, Props>(({ bill }, ref) => {
         <div className="mt-5 flex items-center justify-between rounded-xl bg-gradient-hero px-5 py-4 text-primary-foreground shadow-soft">
           <div>
             <div className="text-[10px] uppercase tracking-[0.22em] opacity-80">Total Payable</div>
-            <div className="text-[11px] opacity-75">Pay before {fmtDate(bill.dueDate)}</div>
+            <div className="text-[11px] opacity-75 uppercase tracking-wider">Due Date: {fmtDate(bill.dueDate)}</div>
           </div>
           <div className="font-display text-3xl font-bold text-accent">
             {formatMoney(c.total, sym)}
@@ -112,16 +145,17 @@ export const BillView = forwardRef<HTMLDivElement, Props>(({ bill }, ref) => {
         </div>
 
         {bill.notes && (
-          <p className="mt-4 text-[11px] italic text-ink-muted">Note: {bill.notes}</p>
+          <p className="mt-4 text-[11px] italic text-ink-muted leading-relaxed">Note: {bill.notes}</p>
         )}
 
-        <div className="mt-5 border-t border-dashed border-paper-line pt-3 text-center text-[10px] uppercase tracking-widest text-ink-muted">
+        <div className="mt-6 border-t border-dashed border-paper-line pt-4 text-center text-[10px] uppercase tracking-[0.2em] text-ink-muted">
           Generated by EasyMeter · {fmtDate(bill.createdAt)}
         </div>
       </div>
     </div>
   );
 });
+
 BillView.displayName = "BillView";
 
 function Cell({
@@ -135,16 +169,14 @@ function Cell({
   mono?: boolean;
   tone?: "success" | "warning";
 }) {
-  const toneClass =
-    tone === "success"
-      ? "text-success"
-      : tone === "warning"
-      ? "text-warning"
-      : "text-ink";
+  let toneClass = "text-ink";
+  if (tone === "success") toneClass = "text-success";
+  else if (tone === "warning") toneClass = "text-warning";
+  
   return (
-    <div className="bg-paper px-5 py-3">
-      <div className="text-[10px] uppercase tracking-widest text-ink-muted">{label}</div>
-      <div className={`mt-0.5 text-sm font-semibold ${toneClass} ${mono ? "font-mono-bill" : ""}`}>
+    <div className="bg-white px-5 py-3">
+      <div className="text-[10px] font-bold uppercase tracking-widest text-ink-muted opacity-60">{label}</div>
+      <div className={`mt-0.5 text-sm font-bold ${toneClass} ${mono ? "font-mono-bill" : ""}`}>
         {value}
       </div>
     </div>
@@ -164,10 +196,14 @@ function ReadingCell({
   accent?: boolean;
   suffix?: string;
 }) {
+  let rowClass = "bg-white";
+  if (accent) rowClass = "bg-accent/5";
+  else if (highlight) rowClass = "bg-secondary/20";
+  
   return (
-    <div className={`px-5 py-4 ${accent ? "bg-accent/15" : highlight ? "bg-secondary" : "bg-paper"}`}>
-      <div className="text-[10px] uppercase tracking-widest text-ink-muted">{label} Reading</div>
-      <div className={`font-mono-bill text-xl font-bold ${accent ? "text-primary" : "text-ink"}`}>
+    <div className={`px-5 py-4 ${rowClass}`}>
+      <div className="text-[10px] font-bold uppercase tracking-widest text-ink-muted opacity-60">{label} reading</div>
+      <div className={`font-mono-bill text-xl font-bold ${accent ? "text-accent" : "text-ink"}`}>
         {value.toLocaleString("en-IN")}{suffix}
       </div>
     </div>
@@ -185,10 +221,14 @@ function ChargeRow({
   sym: string;
   tone?: "warning" | "success";
 }) {
+  let toneClass = "text-ink";
+  if (tone === "warning") toneClass = "text-warning";
+  else if (tone === "success") toneClass = "text-success";
+  
   return (
-    <div className="flex items-center justify-between">
-      <span className="text-ink-muted">{label}</span>
-      <span className={`font-semibold ${tone === "warning" ? "text-warning" : tone === "success" ? "text-success" : "text-ink"}`}>
+    <div className="flex items-center justify-between py-0.5">
+      <span className="text-ink-muted/80">{label}</span>
+      <span className={`font-bold ${toneClass}`}>
         {formatMoney(value, sym)}
       </span>
     </div>

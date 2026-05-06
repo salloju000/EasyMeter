@@ -32,7 +32,21 @@ import {
 } from "@/lib/storage";
 import type { Bill, Tenant } from "@/lib/types";
 import { toast } from "@/hooks/use-toast";
-import { ArrowLeft, ChevronsUpDown, Sparkles, Users } from "lucide-react";
+import { 
+  ArrowLeft, 
+  Zap, 
+  Users, 
+  Calendar, 
+  ChevronRight, 
+  ShieldCheck, 
+  Sparkles,
+  Smartphone,
+  Hash,
+  AlertTriangle,
+  History,
+  FileText,
+  Save
+} from "lucide-react";
 
 const todayISO = () => new Date().toISOString();
 const localDateStr = () => {
@@ -52,7 +66,7 @@ const NewBill = () => {
   const navigate = useNavigate();
   const { id: editId } = useParams();
   const isEdit = Boolean(editId);
-  const tariff = useMemo(() => loadTariff(), []);
+  const tariff = loadTariff();
   const [tenants, setTenants] = useState<Tenant[]>(() => loadTenants());
 
   const existing = useMemo(() => (editId ? getBill(editId) : undefined), [editId]);
@@ -88,15 +102,12 @@ const NewBill = () => {
   const [notes, setNotes] = useState(existing?.notes ?? "");
   const [tenantPickerOpen, setTenantPickerOpen] = useState(false);
 
-  // Prefill phone from saved tenant
   useEffect(() => {
     const t = tenants.find((x) => x.name.trim().toLowerCase() === tenantName.trim().toLowerCase());
     if (t?.phone && !phone) setPhone(t.phone);
     if (t?.meterId && !meterId) setMeterId(t.meterId);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tenantName]);
+  }, [tenantName, tenants, phone, meterId]);
 
-  // Auto-fill previous reading from this tenant's last bill (only when creating).
   useEffect(() => {
     if (isEdit) return;
     if (!tenantName.trim()) return;
@@ -104,8 +115,7 @@ const NewBill = () => {
     if (last && !previousReading) {
       setPreviousReading(String(last.currentReading));
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tenantName]);
+  }, [tenantName, isEdit, previousReading]);
 
   const prev = Number(previousReading) || 0;
   const curr = Number(currentReading) || 0;
@@ -116,17 +126,31 @@ const NewBill = () => {
     return Math.max(0, Math.floor(curr - prev));
   }, [prev, curr, isRollover, maxR]);
 
-  const preview = useMemo(
-    () => calculateBill({ 
+  const preview = useMemo(() => {
+    if (previousReading === "" || currentReading === "") {
+      return {
+        energyCharge: 0,
+        fixedCharge: 0,
+        customerCharge: 0,
+        electricityDuty: 0,
+        interestOnED: 0,
+        surcharge: 0,
+        lossGain: 0,
+        lateFee: 0,
+        total: 0,
+        unitsConsumed: 0,
+        breakdown: [],
+      } as any;
+    }
+    return calculateBill({ 
       totalUnits: units,
       contractedLoadKW: 1,
       daysLate: Number(lateDays) || 0,
       interestOnED: Number(interestOnED) || 0,
       surchargePerUnit: Number(surchargePerUnit) || 0,
       lossGainPercent: Number(lossGainPercent) || 0,
-    }),
-    [units, lateDays, interestOnED, surchargePerUnit, lossGainPercent]
-  );
+    }, tariff);
+  }, [units, lateDays, interestOnED, surchargePerUnit, lossGainPercent, tariff, previousReading, currentReading]);
 
   const validationError = (): string | null => {
     if (!tenantName.trim()) return "Tenant name is required.";
@@ -145,7 +169,7 @@ const NewBill = () => {
   const onSubmit = () => {
     const err = validationError();
     if (err) {
-      toast({ title: "Check your inputs", description: err, variant: "destructive" });
+      toast({ title: "Incomplete Details", description: err, variant: "destructive" });
       return;
     }
     upsertTenantFromBill(tenantName, meterId.trim() || undefined, phone.trim() || undefined);
@@ -159,7 +183,6 @@ const NewBill = () => {
       currentReading: curr,
       billingMonth,
       billingDate: existing?.billingDate ?? todayISO(),
-      // Use noon to avoid timezone day-shift
       dueDate: new Date(`${dueDate}T12:00:00`).toISOString(),
       paymentStatus: paid ? "paid" : "unpaid",
       tariff,
@@ -172,7 +195,7 @@ const NewBill = () => {
     saveBill(bill);
     toast({
       title: isEdit ? "Bill updated" : "Bill generated",
-      description: `${bill.tenantName} · ${formatMoney(preview.total)}`,
+      description: `Invoice for ${bill.tenantName} ready.`,
     });
     navigate(`/bill/${bill.id}`);
   };
@@ -187,56 +210,63 @@ const NewBill = () => {
   return (
     <div className="min-h-screen bg-background">
       <AppHeader />
-      <main className="container max-w-2xl px-4 pb-24 pt-6">
-        <button
-          onClick={() => navigate(-1)}
-          className="mb-3 inline-flex items-center gap-1 text-xs text-ink-muted hover:text-ink"
-        >
-          <ArrowLeft className="h-3.5 w-3.5" /> Back
-        </button>
+      
+      {/* Premium Header */}
+      <div className="bg-gradient-hero py-10 text-primary-foreground shadow-lg">
+        <div className="container max-w-4xl px-4">
+          <button
+            onClick={() => navigate(-1)}
+            className="mb-4 inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider opacity-60 transition-opacity hover:opacity-100"
+          >
+            <ArrowLeft className="h-4 w-4" /> Back to dashboard
+          </button>
+          <div className="flex items-center gap-4">
+            <div className="grid h-14 w-14 place-items-center rounded-2xl bg-accent/20 ring-1 ring-accent/40 backdrop-blur-md">
+              <Zap className="h-7 w-7 text-accent" strokeWidth={2.5} />
+            </div>
+            <div>
+              <h1 className="font-display text-3xl font-bold tracking-tight">
+                {isEdit ? "Update Invoice" : "Generate Bill"}
+              </h1>
+              <p className="text-sm text-primary-foreground/70">
+                Drafting official electricity statement for {tenantName || "registered tenant"}.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
 
-        <h1 className="font-display text-2xl font-bold text-ink">
-          {isEdit ? "Edit Bill" : "New Bill"}
-        </h1>
-        <p className="mt-1 text-sm text-ink-muted">
-          {isEdit
-            ? "Update tenant info or readings — calculation refreshes live."
-            : "Enter tenant info and meter readings. Slab calculation runs live."}
-        </p>
-
-        {/* Tenant */}
-        <Card className="mt-5 space-y-4 p-5 shadow-soft">
-          <SectionTitle>Tenant & Meter</SectionTitle>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Tenant Name *">
-              <div className="flex gap-1">
-                <Input
-                  value={tenantName}
-                  onChange={(e) => setTenantName(e.target.value)}
-                  placeholder="e.g. Ravi Kumar"
-                  className="flex-1"
-                />
+      <main className="container -mt-8 max-w-4xl px-4 pb-32">
+        <div className="grid gap-6 lg:grid-cols-12">
+          
+          <div className="space-y-6 lg:col-span-8">
+            {/* Tenant Selection Card */}
+            <Card className="overflow-hidden border-none shadow-card ring-1 ring-paper-line">
+              <div className="flex items-center justify-between bg-secondary/50 px-6 py-4">
+                <div className="flex items-center gap-2">
+                  <Users className="h-4 w-4 text-accent" />
+                  <h2 className="font-display text-lg font-bold text-ink">Entity Identification</h2>
+                </div>
                 {tenants.length > 0 && (
                   <Popover open={tenantPickerOpen} onOpenChange={setTenantPickerOpen}>
                     <PopoverTrigger asChild>
-                      <Button variant="outline" size="icon" type="button" aria-label="Pick saved tenant">
-                        <Users className="h-4 w-4" />
+                      <Button variant="ghost" size="sm" className="gap-1.5 text-accent hover:bg-accent/10">
+                        <History className="h-3.5 w-3.5" /> Choose Saved
                       </Button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-[260px] p-0" align="end">
+                    <PopoverContent className="w-[280px] p-0" align="end">
                       <Command>
-                        <CommandInput placeholder="Search tenants..." />
+                        <CommandInput placeholder="Search active tenants..." />
                         <CommandList>
-                          <CommandEmpty>No saved tenants.</CommandEmpty>
+                          <CommandEmpty>Profile not found.</CommandEmpty>
                           <CommandGroup>
                             {tenants.map((t) => (
-                              <CommandItem key={t.id} value={t.name} onSelect={() => pickTenant(t)}>
-                                <span className="flex-1 truncate">{t.name}</span>
-                                {t.meterId && (
-                                  <span className="ml-2 font-mono-bill text-[10px] text-ink-muted">
-                                    {t.meterId}
-                                  </span>
-                                )}
+                              <CommandItem key={t.id} value={t.name} onSelect={() => pickTenant(t)} className="flex items-center justify-between py-3">
+                                <div className="min-w-0 flex-1">
+                                  <div className="truncate font-bold text-ink">{t.name}</div>
+                                  <div className="text-[10px] text-ink-muted">{t.meterId || "No Meter ID"}</div>
+                                </div>
+                                <ChevronRight className="h-4 w-4 text-ink-muted/30" />
                               </CommandItem>
                             ))}
                           </CommandGroup>
@@ -246,191 +276,275 @@ const NewBill = () => {
                   </Popover>
                 )}
               </div>
-            </Field>
-            <Field label="Phone (optional, for WhatsApp)">
-              <Input
-                inputMode="tel"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="e.g. 9876543210"
-                className="font-mono-bill"
-              />
-            </Field>
-            <Field label="Meter ID (optional)">
-              <Input value={meterId} onChange={(e) => setMeterId(e.target.value)} placeholder="e.g. SM-2231" />
-            </Field>
-            <Field label="Billing Date">
-              <Input type="date" value={billingMonth} onChange={(e) => setBillingMonth(e.target.value)} min="2020-01-01" max="2035-12-31" />
-            </Field>
-          </div>
-        </Card>
-
-        {/* Readings */}
-        <Card className="mt-4 space-y-4 p-5 shadow-soft">
-          <SectionTitle>Meter Readings</SectionTitle>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Previous Reading *">
-              <Input
-                inputMode="decimal"
-                value={previousReading}
-                onChange={(e) => setPreviousReading(e.target.value)}
-                placeholder="0"
-                className="font-mono-bill"
-              />
-            </Field>
-            <Field label="Current Reading *">
-              <Input
-                inputMode="decimal"
-                value={currentReading}
-                onChange={(e) => setCurrentReading(e.target.value)}
-                placeholder="0"
-                className="font-mono-bill"
-              />
-            </Field>
-          </div>
-
-          {(curr < prev || isRollover) && (
-            <div className="animate-fade-in space-y-3 rounded-lg border border-warning/20 bg-warning/5 p-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label className="text-xs font-bold text-warning">Meter Rollover / Reset</Label>
-                  <p className="text-[10px] text-ink-muted">Enable if meter reached max and reset to zero.</p>
-                </div>
-                <Switch checked={isRollover} onCheckedChange={setIsRollover} />
-              </div>
-              {isRollover && (
-                <div className="grid grid-cols-2 gap-2">
-                  <Field label="Max Meter Reading">
+              <div className="p-6">
+                <div className="grid gap-5 sm:grid-cols-2">
+                  <Field label="Tenant Full Name *">
                     <Input
-                      inputMode="numeric"
-                      value={maxReading}
-                      onChange={(e) => setMaxReading(e.target.value)}
-                      placeholder="10000"
-                      className="h-8 font-mono-bill text-xs"
+                      value={tenantName}
+                      onChange={(e) => setTenantName(e.target.value)}
+                      placeholder="e.g. Rajesh Kumar"
+                      className="h-12 bg-white"
+                    />
+                  </Field>
+                  <Field label="Contact Number" icon={<Smartphone className="h-3 w-3" />}>
+                    <Input
+                      inputMode="tel"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      placeholder="WhatsApp enabled"
+                      className="h-12 font-mono-bill"
+                    />
+                  </Field>
+                  <Field label="Meter ID Reference" icon={<Hash className="h-3 w-3" />}>
+                    <Input 
+                      value={meterId} 
+                      onChange={(e) => setMeterId(e.target.value)} 
+                      placeholder="e.g. SM-A02" 
+                      className="h-12"
+                    />
+                  </Field>
+                  <Field label="Statement Period">
+                    <Input 
+                      type="date" 
+                      value={billingMonth} 
+                      onChange={(e) => setBillingMonth(e.target.value)} 
+                      className="h-12"
                     />
                   </Field>
                 </div>
-              )}
+              </div>
+            </Card>
+
+            {/* Meter Reading Card */}
+            <Card className="overflow-hidden border-none shadow-card ring-1 ring-paper-line">
+              <div className="bg-secondary/50 px-6 py-4">
+                <div className="flex items-center gap-2">
+                  <FileText className="h-4 w-4 text-accent" />
+                  <h2 className="font-display text-lg font-bold text-ink">Meter Diagnostics</h2>
+                </div>
+              </div>
+              <div className="p-6">
+                <div className="grid gap-6 sm:grid-cols-2">
+                  <div className="space-y-6">
+                    <Field label="Previous reading">
+                      <Input
+                        inputMode="decimal"
+                        value={previousReading}
+                        onChange={(e) => setPreviousReading(e.target.value)}
+                        placeholder="0.00"
+                        className="h-14 text-xl font-bold font-mono-bill bg-secondary/20"
+                      />
+                    </Field>
+                    <Field label="Present reading">
+                      <Input
+                        inputMode="decimal"
+                        value={currentReading}
+                        onChange={(e) => setCurrentReading(e.target.value)}
+                        placeholder="0.00"
+                        className="h-14 text-xl font-bold font-mono-bill bg-secondary/20 focus-visible:bg-white"
+                      />
+                    </Field>
+                  </div>
+                  
+                  <div className="flex flex-col">
+                    <div className="flex-1 rounded-2xl bg-gradient-hero p-6 text-primary-foreground shadow-accent ring-1 ring-white/10">
+                      <div className="flex items-center justify-between opacity-70">
+                        <span className="text-[10px] font-bold uppercase tracking-widest">Net Consumption</span>
+                        <Zap className="h-4 w-4" />
+                      </div>
+                      <div className="mt-4 flex items-baseline gap-2">
+                        <span className="font-mono-bill text-5xl font-bold text-accent">
+                          {units.toLocaleString("en-IN")}
+                        </span>
+                        <span className="text-sm font-medium opacity-60 uppercase">Units</span>
+                      </div>
+                      <div className="mt-6 border-t border-white/10 pt-4">
+                        <p className="text-[10px] leading-relaxed opacity-60 uppercase tracking-wider">
+                          Auto-calculated based on {isRollover ? "meter rollover logic" : "linear subtraction"}.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {(curr < prev || isRollover) && (
+                  <div className="mt-6 rounded-2xl border border-dashed border-warning/30 bg-warning/5 p-5">
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="flex gap-3">
+                        <div className="mt-1"><AlertTriangle className="h-5 w-5 text-warning" /></div>
+                        <div>
+                          <h3 className="text-sm font-bold text-ink">Rollover Detected</h3>
+                          <p className="text-xs text-ink-muted">Meter value reset or flipped. Enable override below.</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <Label className="text-xs font-bold text-ink-muted uppercase tracking-widest">Active</Label>
+                        <Switch checked={isRollover} onCheckedChange={setIsRollover} />
+                      </div>
+                    </div>
+                    {isRollover && (
+                      <div className="mt-4 pt-4 border-t border-warning/10">
+                        <Field label="Max Meter Value (Limit)">
+                          <Input
+                            inputMode="numeric"
+                            value={maxReading}
+                            onChange={(e) => setMaxReading(e.target.value)}
+                            placeholder="10000"
+                            className="h-10 font-mono-bill bg-white"
+                          />
+                        </Field>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </Card>
+
+            {/* Financial Adjustments Card */}
+            <Card className="overflow-hidden border-none shadow-card ring-1 ring-paper-line">
+              <div className="bg-secondary/50 px-6 py-4">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className="h-4 w-4 text-accent" />
+                  <h2 className="font-display text-lg font-bold text-ink">Surcharges & Adjustments</h2>
+                </div>
+              </div>
+              <div className="p-6">
+                <div className="grid gap-5 sm:grid-cols-3">
+                  <Field label="Interest on ED (₹)">
+                    <Input
+                      inputMode="decimal"
+                      value={interestOnED}
+                      onChange={(e) => setInterestOnED(e.target.value)}
+                      className="h-11 font-mono-bill bg-white"
+                    />
+                  </Field>
+                  <Field label="Surcharge (₹/unit)">
+                    <Input
+                      inputMode="decimal"
+                      value={surchargePerUnit}
+                      onChange={(e) => setSurchargePerUnit(e.target.value)}
+                      className="h-11 font-mono-bill bg-white"
+                    />
+                  </Field>
+                  <Field label="Loss/Gain (%)">
+                    <Input
+                      inputMode="decimal"
+                      value={lossGainPercent}
+                      onChange={(e) => setLossGainPercent(e.target.value)}
+                      className="h-11 font-mono-bill bg-white"
+                    />
+                  </Field>
+                </div>
+              </div>
+            </Card>
+          </div>
+
+          {/* Sidebar / Status Column */}
+          <div className="space-y-6 lg:col-span-4">
+            {/* Live Preview Card */}
+            <Card className="sticky top-20 p-6 border-none shadow-card ring-1 ring-paper-line bg-gradient-paper">
+              <div className="mb-6 flex items-center gap-2 text-ink-muted">
+                <Sparkles className="h-4 w-4 text-accent" />
+                <span className="text-xs font-bold uppercase tracking-widest">Real-time Preview</span>
+              </div>
+              
+              <div className="space-y-4">
+                <div className="flex justify-between text-sm">
+                  <span className="text-ink-muted">Energy Charge</span>
+                  <span className="font-bold text-ink">{formatMoney(preview.energyCharge)}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-ink-muted">Fixed Charges</span>
+                  <span className="font-bold text-ink">{formatMoney(preview.fixedCharge)}</span>
+                </div>
+                {preview.customerCharges > 0 && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-ink-muted">Surcharges</span>
+                    <span className="font-bold text-ink">{formatMoney(preview.customerCharges)}</span>
+                  </div>
+                )}
+                <div className="my-4 border-t border-dashed border-paper-line" />
+                <div className="flex flex-col">
+                  <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-ink-muted mb-1">Invoice Total</span>
+                  <span className="font-mono-bill text-4xl font-bold text-ink">
+                    {formatMoney(preview.total, tariff.currencySymbol)}
+                  </span>
+                </div>
+              </div>
+
+              <div className="mt-8 space-y-4">
+                <Field label="Final Due Date">
+                  <Input 
+                    type="date" 
+                    value={dueDate} 
+                    onChange={(e) => setDueDate(e.target.value)} 
+                    className="h-11 bg-white font-bold"
+                  />
+                </Field>
+                
+                <div className="flex items-center justify-between rounded-2xl bg-white p-4 ring-1 ring-paper-line shadow-soft transition-all">
+                  <div>
+                    <Label className="text-xs font-bold uppercase tracking-wider text-ink">Paid Status</Label>
+                    <p className="text-[10px] text-ink-muted">Payment received in full</p>
+                  </div>
+                  <Switch checked={paid} onCheckedChange={setPaid} className="data-[state=checked]:bg-success" />
+                </div>
+              </div>
+
+              <div className="mt-8 grid gap-3">
+                <Button 
+                  onClick={onSubmit} 
+                  className="group h-14 w-full gap-3 bg-gradient-accent text-lg font-bold text-accent-foreground shadow-accent active:scale-95 transition-all"
+                >
+                  <Save className="h-5 w-5 transition-transform group-hover:scale-110" /> 
+                  {isEdit ? "Update Bill" : "Finalize & Save"}
+                </Button>
+                <Button 
+                  variant="ghost" 
+                  onClick={() => navigate(-1)}
+                  className="h-12 w-full text-ink-muted hover:bg-secondary/50"
+                >
+                  Discard Changes
+                </Button>
+              </div>
+            </Card>
+
+            <div className="p-4 rounded-2xl bg-secondary/30 ring-1 ring-paper-line">
+              <Label className="mb-2 block text-[10px] font-bold uppercase tracking-widest text-ink-muted">Internal Remarks</Label>
+              <Textarea
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="Remarks for internal records..."
+                className="bg-transparent border-none resize-none text-xs focus-visible:ring-0"
+                rows={3}
+              />
             </div>
-          )}
-          <div className="rounded-xl bg-gradient-hero p-4 text-primary-foreground">
-            <div className="text-[10px] uppercase tracking-[0.2em] opacity-80">Units Consumed</div>
-            <div className="font-mono-bill text-3xl font-bold text-accent">
-              {units.toLocaleString("en-IN")}{" "}
-              <span className="text-sm font-medium opacity-80">kWh</span>
-            </div>
           </div>
-        </Card>
-
-        {/* Additional Charges */}
-        <Card className="mt-4 space-y-4 p-5 shadow-soft">
-          <SectionTitle>Additional Charges</SectionTitle>
-          <div className="grid gap-4 sm:grid-cols-3">
-            <Field label="Interest on ED (₹)">
-              <Input
-                inputMode="decimal"
-                value={interestOnED}
-                onChange={(e) => setInterestOnED(e.target.value)}
-                placeholder="0"
-                className="font-mono-bill"
-                title="Direct amount for interest on overdue Electricity Duty arrears"
-              />
-            </Field>
-            <Field label="Surcharge (₹/unit)">
-              <Input
-                inputMode="decimal"
-                value={surchargePerUnit}
-                onChange={(e) => setSurchargePerUnit(e.target.value)}
-                placeholder="0"
-                className="font-mono-bill"
-                title="Per-unit surcharge rate"
-              />
-            </Field>
-            <Field label="Loss/Gain (%)">
-              <Input
-                inputMode="decimal"
-                value={lossGainPercent}
-                onChange={(e) => setLossGainPercent(e.target.value)}
-                placeholder="0"
-                className="font-mono-bill"
-                title="% on (Energy + Fixed + Surcharge). Positive = extra debit, Negative = credit"
-              />
-            </Field>
-          </div>
-        </Card>
-
-        {/* Payment */}
-        <Card className="mt-4 space-y-4 p-5 shadow-soft">
-          <SectionTitle>Payment</SectionTitle>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Due Date">
-              <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} min="2020-01-01" max="2035-12-31" />
-            </Field>
-            <Field label="Late Days (optional)">
-              <Input
-                inputMode="numeric"
-                value={lateDays}
-                onChange={(e) => setLateDays(e.target.value)}
-                className="font-mono-bill"
-              />
-            </Field>
-          </div>
-          <div className="flex items-center justify-between rounded-lg bg-secondary px-4 py-3">
-            <div>
-              <Label className="text-sm font-medium text-ink">Mark as Paid</Label>
-              <p className="text-xs text-ink-muted">Toggle if tenant has already paid.</p>
-            </div>
-            <Switch checked={paid} onCheckedChange={setPaid} />
-          </div>
-          <Field label="Notes (optional)">
-            <Textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="e.g. AC usage in summer..."
-              rows={2}
-            />
-          </Field>
-        </Card>
-
-        <Card className="mt-4 flex items-center justify-between gap-3 bg-paper p-4">
-          <div className="flex items-center gap-2 text-sm text-ink-muted">
-            <Sparkles className="h-4 w-4 text-accent" />
-            Estimated total
-          </div>
-          <div className="font-mono-bill text-2xl font-bold text-ink">
-            {formatMoney(preview.total, tariff.currencySymbol)}
-          </div>
-        </Card>
-
-        <div className="sticky bottom-3 mt-5 flex gap-2">
-          <Button variant="outline" className="flex-1" onClick={() => navigate(-1)}>
-            Cancel
-          </Button>
-          <Button
-            className="flex-1 bg-gradient-accent text-accent-foreground shadow-accent hover:opacity-95"
-            onClick={onSubmit}
-          >
-            {isEdit ? "Save Changes" : "Generate Bill"}
-            <ChevronsUpDown className="ml-1 hidden h-4 w-4" />
-          </Button>
         </div>
       </main>
     </div>
   );
 };
 
-function SectionTitle({ children }: { children: React.ReactNode }) {
+function Field({
+  label,
+  children,
+  className = "",
+  icon,
+}: {
+  label: string;
+  children: React.ReactNode;
+  className?: string;
+  icon?: React.ReactNode;
+}) {
   return (
-    <h2 className="text-[11px] font-bold uppercase tracking-[0.2em] text-ink-muted">{children}</h2>
-  );
-}
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <label className="block">
-      <span className="mb-1 block text-xs font-medium text-ink-muted">{label}</span>
+    <div className={`space-y-2 ${className}`}>
+      <div className="flex items-center gap-1.5 px-1">
+        {icon && <span className="text-accent">{icon}</span>}
+        <Label className="text-[10px] font-bold uppercase tracking-[0.15em] text-ink-muted/80">{label}</Label>
+      </div>
       {children}
-    </label>
+    </div>
   );
 }
 

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { AppHeader } from "@/components/AppHeader";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -11,7 +11,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
   AlertDialog,
@@ -26,7 +25,19 @@ import {
 import { deleteTenant, loadBills, loadTenants, saveTenant, uid } from "@/lib/storage";
 import type { Tenant } from "@/lib/types";
 import { toast } from "@/hooks/use-toast";
-import { Plus, Pencil, Trash2, User, Phone, Hash } from "lucide-react";
+import { 
+  Plus, 
+  Pencil, 
+  Trash2, 
+  User, 
+  Phone, 
+  Hash, 
+  Search, 
+  Users,
+  ChevronRight,
+  FileText,
+  MessageSquare
+} from "lucide-react";
 import { Link } from "react-router-dom";
 
 const Tenants = () => {
@@ -34,6 +45,7 @@ const Tenants = () => {
   const [editing, setEditing] = useState<Tenant | null>(null);
   const [open, setOpen] = useState(false);
   const [toDelete, setToDelete] = useState<Tenant | null>(null);
+  const [search, setSearch] = useState("");
 
   const refresh = () => setTenants(loadTenants());
 
@@ -69,155 +81,224 @@ const Tenants = () => {
     });
     refresh();
     setOpen(false);
-    toast({ title: "Tenant saved" });
+    toast({ title: "Tenant configuration saved", description: `${editing.name} has been updated.` });
   };
 
   const confirmDelete = () => {
     if (!toDelete) return;
     deleteTenant(toDelete.id);
     refresh();
-    toast({ title: "Tenant deleted" });
+    toast({ title: "Tenant removed", description: "All past bills remain intact." });
     setToDelete(null);
   };
 
+  const bills = useMemo(() => loadBills(), []);
   const billCount = (name: string) =>
-    loadBills().filter((b) => b.tenantName.trim().toLowerCase() === name.trim().toLowerCase())
-      .length;
+    bills.filter((b) => b.tenantName.trim().toLowerCase() === name.trim().toLowerCase()).length;
+
+  const filteredTenants = useMemo(() => {
+    const q = search.toLowerCase();
+    return tenants.filter(t => 
+      t.name.toLowerCase().includes(q) || 
+      t.meterId?.toLowerCase().includes(q) || 
+      t.phone?.includes(q)
+    );
+  }, [tenants, search]);
 
   return (
     <div className="min-h-screen bg-background">
       <AppHeader />
-      <main className="container max-w-2xl px-4 pb-24 pt-6">
-        <div className="flex items-end justify-between gap-3">
-          <div>
-            <h1 className="font-display text-2xl font-bold text-ink">Tenants</h1>
-            <p className="mt-1 text-sm text-ink-muted">
-              Save tenants to quickly fill new bills with a tap.
-            </p>
+      
+      {/* Premium Header */}
+      <div className="bg-gradient-hero py-12 text-primary-foreground shadow-lg">
+        <div className="container max-w-4xl px-4 text-center">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-accent/20 ring-1 ring-accent/40 backdrop-blur-md">
+            <Users className="h-8 w-8 text-accent" strokeWidth={2} />
           </div>
-          <Button onClick={openNew} className="gap-1 bg-gradient-accent text-accent-foreground shadow-accent">
-            <Plus className="h-4 w-4" /> Add
+          <h1 className="font-display text-4xl font-bold tracking-tight">Tenant Management</h1>
+          <p className="mx-auto mt-3 max-w-md text-primary-foreground/70">
+            Keep track of all your sub-meters and quickly generate bills for registered tenants.
+          </p>
+        </div>
+      </div>
+
+      <main className="container -mt-8 max-w-3xl px-4 pb-32">
+        {/* Search & Actions Bar */}
+        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-muted opacity-50" />
+            <Input
+              placeholder="Search by name, meter ID, or phone..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="h-12 border-none bg-white pl-10 shadow-soft ring-1 ring-paper-line focus-visible:ring-accent"
+            />
+          </div>
+          <Button onClick={openNew} className="h-12 gap-2 bg-gradient-accent px-6 text-base font-bold text-accent-foreground shadow-accent active:scale-95 transition-all">
+            <Plus className="h-5 w-5" strokeWidth={3} /> Add Tenant
           </Button>
         </div>
 
-        {tenants.length === 0 ? (
-          <Card className="mt-6 border-dashed bg-paper p-10 text-center">
-            <div className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-secondary text-ink-muted">
-              <User className="h-6 w-6" />
+        {filteredTenants.length === 0 ? (
+          <Card className="flex flex-col items-center justify-center border-none bg-gradient-paper p-12 text-center shadow-card ring-1 ring-paper-line">
+            <div className="grid h-20 w-20 place-items-center rounded-3xl bg-white shadow-soft">
+              <User className="h-10 w-10 text-ink-muted/30" />
             </div>
-            <p className="mt-3 font-medium text-ink">No tenants yet</p>
-            <p className="mt-1 text-sm text-ink-muted">
-              Tenants are also auto-saved when you generate a bill.
+            <h3 className="mt-6 font-display text-xl font-bold text-ink">No tenants found</h3>
+            <p className="mx-auto mt-2 max-w-xs text-sm text-ink-muted">
+              {search ? `We couldn't find any results for "${search}".` : "Add your first tenant to start generating bills faster."}
             </p>
-            <Button asChild className="mt-4" variant="outline">
-              <Link to="/new">Create a bill</Link>
-            </Button>
+            {!search && (
+              <Button onClick={openNew} variant="outline" className="mt-6 h-11 px-8">
+                Add First Tenant
+              </Button>
+            )}
           </Card>
         ) : (
-          <ul className="mt-5 grid gap-2">
-            {tenants.map((t) => {
+          <div className="grid gap-3">
+            {filteredTenants.map((t) => {
               const count = billCount(t.name);
               return (
-                <li
+                <div
                   key={t.id}
-                  className="flex items-center gap-3 rounded-xl border border-border bg-card p-3 shadow-soft"
+                  className="group flex items-center gap-4 rounded-2xl border border-paper-line bg-white p-4 shadow-soft transition-all hover:scale-[1.01] hover:shadow-card hover:ring-1 hover:ring-accent/20"
                 >
                   <Link
                     to={`/tenants/${t.id}`}
-                    className="flex min-w-0 flex-1 items-center gap-3"
+                    className="flex min-w-0 flex-1 items-center gap-4"
                   >
-                    <div className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-gradient-hero text-accent">
-                      <User className="h-5 w-5" strokeWidth={2.5} />
+                    <div className="relative grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-gradient-hero text-accent shadow-soft transition-transform group-hover:scale-110">
+                      <User className="h-6 w-6" strokeWidth={2.5} />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <div className="truncate font-semibold text-ink">{t.name}</div>
-                      <div className="mt-0.5 flex flex-wrap gap-x-3 text-[11px] text-ink-muted">
+                      <div className="flex items-center gap-2">
+                        <span className="truncate font-display text-lg font-bold text-ink">{t.name}</span>
+                        {count > 0 && (
+                          <span className="flex items-center gap-1 rounded-full bg-success/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-success">
+                            <FileText className="h-2.5 w-2.5" /> Active
+                          </span>
+                        )}
+                      </div>
+                      <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-ink-muted">
                         {t.meterId && (
-                          <span className="inline-flex items-center gap-1">
-                            <Hash className="h-3 w-3" /> {t.meterId}
+                          <span className="flex items-center gap-1.5">
+                            <Hash className="h-3.5 w-3.5 opacity-50" /> {t.meterId}
                           </span>
                         )}
                         {t.phone && (
-                          <span className="inline-flex items-center gap-1">
-                            <Phone className="h-3 w-3" /> {t.phone}
+                          <span className="flex items-center gap-1.5">
+                            <Phone className="h-3.5 w-3.5 opacity-50" /> {t.phone}
                           </span>
                         )}
-                        <span>{count} bill{count === 1 ? "" : "s"}</span>
+                        <span className="flex items-center gap-1.5">
+                          <FileText className="h-3.5 w-3.5 opacity-50" /> {count} Bill{count === 1 ? "" : "s"}
+                        </span>
                       </div>
                     </div>
                   </Link>
-                  <button
-                    onClick={() => openEdit(t)}
-                    className="rounded-md p-2 text-ink-muted hover:bg-secondary hover:text-ink"
-                    aria-label="Edit"
-                  >
-                    <Pencil className="h-4 w-4" />
-                  </button>
-                  <button
-                    onClick={() => setToDelete(t)}
-                    className="rounded-md p-2 text-ink-muted hover:bg-destructive/10 hover:text-destructive"
-                    aria-label="Delete"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </li>
+                  
+                  <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => openEdit(t)}
+                      className="h-10 w-10 text-ink-muted hover:bg-secondary hover:text-ink"
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setToDelete(t)}
+                      className="h-10 w-10 text-ink-muted hover:bg-destructive/10 hover:text-destructive"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                    <div className="ml-2 text-ink-muted/20">
+                      <ChevronRight className="h-5 w-5" />
+                    </div>
+                  </div>
+                </div>
               );
             })}
-          </ul>
+          </div>
         )}
       </main>
 
-      {/* Edit / new dialog */}
+      {/* Modern Edit Dialog */}
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogTrigger asChild>
-          <span hidden />
-        </DialogTrigger>
-        <DialogContent>
+        <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle>{editing && tenants.find((t) => t.id === editing.id) ? "Edit Tenant" : "New Tenant"}</DialogTitle>
-            <DialogDescription>Stored locally on this device.</DialogDescription>
+            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-accent/10">
+              <User className="h-6 w-6 text-accent" />
+            </div>
+            <DialogTitle className="font-display text-2xl font-bold text-ink">
+              {editing && tenants.find((t) => t.id === editing.id) ? "Edit Profile" : "Register Tenant"}
+            </DialogTitle>
+            <DialogDescription className="text-ink-muted">
+              Registration data is encrypted and stored locally.
+            </DialogDescription>
           </DialogHeader>
+          
           {editing && (
-            <div className="grid gap-3">
-              <div>
-                <Label className="text-xs text-ink-muted">Name *</Label>
+            <div className="grid gap-5 py-4">
+              <div className="space-y-2">
+                <Label className="text-[11px] font-bold uppercase tracking-widest text-ink-muted">Full Name *</Label>
                 <Input
                   value={editing.name}
                   onChange={(e) => setEditing({ ...editing, name: e.target.value })}
-                  placeholder="e.g. Ravi Kumar"
+                  placeholder="e.g. Rajesh Kumar"
+                  className="h-12 border-paper-line bg-secondary/30 focus-visible:bg-white"
                 />
               </div>
-              <div>
-                <Label className="text-xs text-ink-muted">Meter ID</Label>
-                <Input
-                  value={editing.meterId ?? ""}
-                  onChange={(e) => setEditing({ ...editing, meterId: e.target.value })}
-                  placeholder="e.g. SM-2231"
-                />
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label className="text-[11px] font-bold uppercase tracking-widest text-ink-muted">Meter ID / Flat</Label>
+                  <div className="relative">
+                    <Hash className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-muted/50" />
+                    <Input
+                      value={editing.meterId ?? ""}
+                      onChange={(e) => setEditing({ ...editing, meterId: e.target.value })}
+                      placeholder="SM-01"
+                      className="h-11 border-paper-line bg-secondary/30 pl-9 focus-visible:bg-white"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-[11px] font-bold uppercase tracking-widest text-ink-muted">Phone Number</Label>
+                  <div className="relative">
+                    <Phone className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-muted/50" />
+                    <Input
+                      value={editing.phone ?? ""}
+                      onChange={(e) => setEditing({ ...editing, phone: e.target.value })}
+                      placeholder="91..."
+                      className="h-11 border-paper-line bg-secondary/30 pl-9 font-mono-bill focus-visible:bg-white"
+                    />
+                  </div>
+                </div>
               </div>
-              <div>
-                <Label className="text-xs text-ink-muted">Phone (for WhatsApp)</Label>
-                <Input
-                  value={editing.phone ?? ""}
-                  onChange={(e) => setEditing({ ...editing, phone: e.target.value })}
-                  placeholder="e.g. 919876543210"
-                  className="font-mono-bill"
-                />
-              </div>
-              <div>
-                <Label className="text-xs text-ink-muted">Notes</Label>
-                <Input
-                  value={editing.notes ?? ""}
-                  onChange={(e) => setEditing({ ...editing, notes: e.target.value })}
-                />
+              <div className="space-y-2">
+                <Label className="text-[11px] font-bold uppercase tracking-widest text-ink-muted">Internal Notes</Label>
+                <div className="relative">
+                  <MessageSquare className="absolute left-3 top-3 h-4 w-4 text-ink-muted/50" />
+                  <Input
+                    value={editing.notes ?? ""}
+                    onChange={(e) => setEditing({ ...editing, notes: e.target.value })}
+                    placeholder="Reference for late fees, move-in date, etc."
+                    className="h-12 border-paper-line bg-secondary/30 pl-10 focus-visible:bg-white"
+                  />
+                </div>
               </div>
             </div>
           )}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setOpen(false)}>
-              Cancel
+          
+          <DialogFooter className="mt-2">
+            <Button variant="ghost" onClick={() => setOpen(false)} className="h-12 text-ink-muted hover:bg-secondary">
+              Dismiss
             </Button>
-            <Button onClick={onSave}>Save</Button>
+            <Button onClick={onSave} className="h-12 px-8 bg-gradient-hero text-primary-foreground font-bold active:scale-95 transition-all">
+              Save Tenant Profile
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -225,18 +306,19 @@ const Tenants = () => {
       <AlertDialog open={!!toDelete} onOpenChange={(o) => !o && setToDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete tenant?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This removes <strong>{toDelete?.name}</strong> from saved tenants. Their existing bills are kept.
+            <AlertDialogTitle className="font-display text-xl font-bold">Unregister Tenant?</AlertDialogTitle>
+            <AlertDialogDescription className="leading-relaxed">
+              This will remove <strong>{toDelete?.name}</strong> from your active directory. 
+              Past billing records will not be deleted, but this profile will be gone.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogFooter className="mt-4">
+            <AlertDialogCancel className="h-12 border-none bg-secondary/50 hover:bg-secondary">Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={confirmDelete}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              className="h-12 bg-destructive text-destructive-foreground shadow-lg shadow-destructive/20 hover:bg-destructive/90"
             >
-              Delete
+              Confirm Deletion
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

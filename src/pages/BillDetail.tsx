@@ -151,9 +151,9 @@ const BillDetail = () => {
       <main className="container max-w-3xl px-4 pb-32 pt-5">
         <button
           onClick={() => navigate("/")}
-          className="mb-3 inline-flex items-center gap-1 text-xs text-ink-muted hover:text-ink"
+          className="mb-4 inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-widest text-ink-muted/60 transition-colors hover:text-accent"
         >
-          <ArrowLeft className="h-3.5 w-3.5" /> All bills
+          <ArrowLeft className="h-4 w-4" /> All Statements
         </button>
 
         <BillView ref={billRef} bill={bill} />

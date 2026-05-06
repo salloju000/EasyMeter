@@ -35,7 +35,6 @@ What used to be a 20-minute manual task now takes **less than 30 seconds**. Easy
 - 🧮 **Precise Calculations**: Automatically handles TSSPDCL/TGSPDCL domestic billing structures.
 - 📂 **Tenant Management**: Keep track of multiple tenants and their historical readings.
 - 📄 **Professional Billing**: Generate and export bills as high-quality images or PDFs.
-- 🌓 **Dark Mode**: Beautiful, system-aware dark and light modes.
 - 🔄 **History Tracking**: View billing history at a glance with interactive charts.
 
 ---

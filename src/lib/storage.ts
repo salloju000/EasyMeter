@@ -5,20 +5,9 @@ const BILLS_KEY = "submetercalc.bills.v1";
 const TENANTS_KEY = "submetercalc.tenants.v1";
 
 export const AP_DEFAULT_TARIFF: TariffConfig = {
-  slabs: [
-    { from: 1, to: 50, rate: 1.95 },
-    { from: 51, to: 100, rate: 3.10 },
-    { from: 101, to: 200, rate: 4.65 },
-    { from: 201, to: 300, rate: 6.90 },
-    { from: 301, to: 400, rate: 8.00 },
-    { from: 401, to: 500, rate: 8.70 },
-    { from: 501, to: null, rate: 9.75 },
-  ],
-  fixedCharge: 50,
-  extras: [
-    { id: "duty", label: "Electricity Duty", amount: 10 },
-    { id: "service", label: "Service Charge", amount: 15 },
-  ],
+  slabs: [],
+  fixedCharge: 0,
+  extras: [],
   currencySymbol: "₹",
   lateFeePerDay: 5,
 };

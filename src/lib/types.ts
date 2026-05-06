@@ -45,6 +45,7 @@ export interface BillCalculation {
   lossGainPercent?: number;
   lateFee: number;
   total: number;
+  extras?: ExtraCharge[];
   // Included to prevent TS errors on older saved bills during transition, optional.
   breakdown?: SlabBreakdown[];
   unitsConsumed?: number;
@@ -167,9 +168,9 @@ export const TSSPDCL_DOMESTIC_2025_26: TSSPDCLDomesticTariffConfig = {
     },
   ],
   fixedChargePerKW: {
-    LT1A: 10,     // Rs/kW/month
+    LT1A: 10,
     LT1Bi: 10,
-    LT1Bii: 10,   // you can special-case >800 units to 50 if you want to be ultra-precise
+    LT1Bii: 10,   // ₹10/kW/month for all LT-I domestic categories up to 800 units
   },
   customerChargeBands: [
     { from: 0, to: 50, amount: 40 },

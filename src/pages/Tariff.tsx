@@ -5,21 +5,32 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  AP_DEFAULT_TARIFF,
-  exportBackup,
-  importBackup,
   loadTariff,
   saveTariff,
 } from "@/lib/storage";
-import type { ExtraCharge, Slab, TariffConfig } from "@/lib/types";
+import type { Slab, TariffConfig } from "@/lib/types";
+import { TSSPDCL_DOMESTIC_2025_26 } from "@/lib/types";
 import { toast } from "@/hooks/use-toast";
-import { Plus, Trash2, Sparkles, Save, Download, Upload } from "lucide-react";
+import {
+  Plus,
+  Trash2,
+  Sparkles,
+  Save,
+  Zap,
+  ShieldCheck,
+  ArrowRight,
+} from "lucide-react";
 
 const Tariff = () => {
   const [t, setT] = useState<TariffConfig>(loadTariff());
-  const fileRef = useRef<HTMLInputElement>(null);
 
-  const update = (patch: Partial<TariffConfig>) => setT((s) => ({ ...s, ...patch }));
+  const update = (patch: Partial<TariffConfig>) => {
+    setT((s) => {
+      const next = { ...s, ...patch };
+      saveTariff(next);
+      return next;
+    });
+  };
 
   const updateSlab = (i: number, patch: Partial<Slab>) => {
     const slabs = t.slabs.map((s, idx) => (idx === i ? { ...s, ...patch } : s));
@@ -34,216 +45,125 @@ const Tariff = () => {
 
   const removeSlab = (i: number) => update({ slabs: t.slabs.filter((_, idx) => idx !== i) });
 
-  const updateExtra = (id: string, patch: Partial<ExtraCharge>) => {
-    update({ extras: t.extras.map((e) => (e.id === id ? { ...e, ...patch } : e)) });
-  };
-  const addExtra = () => {
-    update({
-      extras: [...t.extras, { id: Math.random().toString(36).slice(2, 8), label: "Other", amount: 0 }],
-    });
-  };
-  const removeExtra = (id: string) =>
-    update({ extras: t.extras.filter((e) => e.id !== id) });
-
-  const onSave = () => {
-    // Basic validation
-    for (const s of t.slabs) {
-      if (s.rate < 0 || s.from < 1 || (s.to !== null && s.to < s.from)) {
-        toast({ title: "Invalid slab", description: "Check from/to/rate values.", variant: "destructive" });
-        return;
-      }
-    }
-    saveTariff(t);
-    toast({ title: "Tariff saved" });
+  const clearSlabs = () => {
+    update({ slabs: [] });
+    toast({ title: "Automatic TSPDCL Active", description: "All changes applied instantly." });
   };
 
-  const loadAP = () => {
-    setT({ ...AP_DEFAULT_TARIFF });
-    toast({ title: "Andhra Pradesh preset loaded", description: "Click Save to apply." });
-  };
-
-  const onExportBackup = () => {
-    const payload = exportBackup();
-    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    const stamp = new Date().toISOString().slice(0, 10);
-    a.href = url;
-    a.download = `submetercalc-backup-${stamp}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-    toast({
-      title: "Backup downloaded",
-      description: `${payload.bills.length} bills · ${payload.tenants.length} tenants`,
-    });
-  };
-
-  const onImportBackup = async (file: File) => {
-    try {
-      const text = await file.text();
-      const json = JSON.parse(text);
-      const result = importBackup(json, "merge");
-      setT(loadTariff());
-      toast({
-        title: "Backup restored",
-        description: `Merged ${result.bills} bills, ${result.tenants} tenants.`,
-      });
-    } catch (e) {
-      toast({
-        title: "Import failed",
-        description: e instanceof Error ? e.message : "Invalid file",
-        variant: "destructive",
-      });
-    }
-  };
+  const isAutomatic = t.slabs.length === 0;
 
   return (
     <div className="min-h-screen bg-background">
       <AppHeader />
-      <main className="container max-w-2xl px-4 pb-32 pt-6">
-        <div className="flex items-end justify-between gap-2">
-          <div>
-            <h1 className="font-display text-2xl font-bold text-ink">Tariff Settings</h1>
-            <p className="mt-1 text-sm text-ink-muted">Define slab rates and other charges.</p>
-          </div>
-          <Button variant="outline" onClick={loadAP} className="gap-1">
-            <Sparkles className="h-4 w-4 text-accent" /> AP Preset
-          </Button>
-        </div>
 
-        <Card className="mt-5 p-5 shadow-soft">
-          <h2 className="text-[11px] font-bold uppercase tracking-[0.2em] text-ink-muted">Slab Rates</h2>
-          <div className="mt-3 space-y-2">
-            {t.slabs.map((s, i) => (
-              <div key={i} className="grid grid-cols-12 gap-2 rounded-lg bg-secondary p-2">
-                <NumField
-                  className="col-span-3"
-                  label="From"
-                  value={s.from}
-                  onChange={(n) => updateSlab(i, { from: Number(n) || 0 })}
-                />
-                <NumField
-                  className="col-span-3"
-                  label="To"
-                  value={s.to ?? ""}
-                  placeholder="∞"
-                  onChange={(n) => updateSlab(i, { to: n === "" ? null : Number(n) })}
-                />
-                <NumField
-                  className="col-span-4"
-                  label={`Rate (${t.currencySymbol}/unit)`}
-                  value={s.rate}
-                  step="0.01"
-                  onChange={(n) => updateSlab(i, { rate: Number(n) || 0 })}
-                />
-                <button
-                  onClick={() => removeSlab(i)}
-                  className="col-span-2 mt-5 inline-flex items-center justify-center rounded-md text-ink-muted hover:text-destructive"
-                  aria-label="Remove slab"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              </div>
-            ))}
+      {/* Premium Header */}
+      <div className="bg-gradient-hero py-12 text-primary-foreground shadow-lg">
+        <div className="container max-w-4xl px-4 text-center">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-accent/20 ring-1 ring-accent/40 backdrop-blur-md">
+            <Zap className="h-8 w-8 text-accent" strokeWidth={2} />
           </div>
-          <Button variant="outline" size="sm" className="mt-3 gap-1" onClick={addSlab}>
-            <Plus className="h-4 w-4" /> Add Slab
-          </Button>
-        </Card>
-
-        <Card className="mt-4 p-5 shadow-soft">
-          <h2 className="text-[11px] font-bold uppercase tracking-[0.2em] text-ink-muted">Other Charges</h2>
-          <div className="mt-3 grid gap-3 sm:grid-cols-2">
-            <Field label="Fixed Meter Charge">
-              <Input
-                inputMode="decimal"
-                value={t.fixedCharge}
-                onChange={(e) => update({ fixedCharge: Number(e.target.value) || 0 })}
-                className="font-mono-bill"
-              />
-            </Field>
-            <Field label="Late Fee / day">
-              <Input
-                inputMode="decimal"
-                value={t.lateFeePerDay}
-                onChange={(e) => update({ lateFeePerDay: Number(e.target.value) || 0 })}
-                className="font-mono-bill"
-              />
-            </Field>
-            <Field label="Currency Symbol">
-              <Input
-                value={t.currencySymbol}
-                onChange={(e) => update({ currencySymbol: e.target.value || "₹" })}
-              />
-            </Field>
-          </div>
-
-          <h3 className="mt-5 text-[11px] font-bold uppercase tracking-[0.2em] text-ink-muted">
-            Extra Charges
-          </h3>
-          <div className="mt-2 space-y-2">
-            {t.extras.map((e) => (
-              <div key={e.id} className="grid grid-cols-12 gap-2 rounded-lg bg-secondary p-2">
-                <Field className="col-span-7" label="Label">
-                  <Input value={e.label} onChange={(ev) => updateExtra(e.id, { label: ev.target.value })} />
-                </Field>
-                <Field className="col-span-3" label="Amount">
-                  <Input
-                    inputMode="decimal"
-                    value={e.amount}
-                    onChange={(ev) => updateExtra(e.id, { amount: Number(ev.target.value) || 0 })}
-                    className="font-mono-bill"
-                  />
-                </Field>
-                <button
-                  onClick={() => removeExtra(e.id)}
-                  className="col-span-2 mt-5 inline-flex items-center justify-center rounded-md text-ink-muted hover:text-destructive"
-                  aria-label="Remove charge"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              </div>
-            ))}
-          </div>
-          <Button variant="outline" size="sm" className="mt-3 gap-1" onClick={addExtra}>
-            <Plus className="h-4 w-4" /> Add Charge
-          </Button>
-        </Card>
-
-        <Card className="mt-4 p-5 shadow-soft">
-          <h2 className="text-[11px] font-bold uppercase tracking-[0.2em] text-ink-muted">
-            Backup & Restore
-          </h2>
-          <p className="mt-2 text-xs text-ink-muted">
-            Export all bills, tenants, and tariff settings to a JSON file. Import it on another
-            device to restore.
+          <h1 className="font-display text-4xl font-bold tracking-tight">Tariff & System Settings</h1>
+          <p className="mx-auto mt-3 max-w-md text-primary-foreground/70">
+            Configure energy slabs and automated TSPDCL category rates.
           </p>
-          <div className="mt-3 flex flex-col gap-2 sm:flex-row">
-            <Button variant="outline" className="gap-1" onClick={onExportBackup}>
-              <Download className="h-4 w-4" /> Export Backup
+        </div>
+      </div>
+
+      <main className="container -mt-8 max-w-3xl px-4 pb-32">
+        {/* Slab Editor Card */}
+        <Card className="overflow-hidden border-none shadow-card ring-1 ring-paper-line">
+          <div className="flex items-center justify-between bg-secondary/50 px-6 py-4">
+            <div className="flex items-center gap-2">
+              <Zap className="h-4 w-4 text-accent" />
+              <h2 className="font-display text-lg font-bold text-ink">Energy Slabs</h2>
+            </div>
+            <Button
+              variant={isAutomatic ? "secondary" : "outline"}
+              size="sm"
+              onClick={clearSlabs}
+              className={`gap-1.5 transition-all ${isAutomatic ? "bg-accent/10 text-accent ring-1 ring-accent/20" : ""}`}
+            >
+              <Sparkles className={`h-3.5 w-3.5 ${isAutomatic ? "animate-pulse" : ""}`} />
+              {isAutomatic ? "Automatic TSPDCL" : "Switch to Automatic"}
             </Button>
-            <Button variant="outline" className="gap-1" onClick={() => fileRef.current?.click()}>
-              <Upload className="h-4 w-4" /> Import Backup
-            </Button>
-            <input
-              ref={fileRef}
-              type="file"
-              accept="application/json,.json"
-              className="hidden"
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) onImportBackup(f);
-                e.target.value = "";
-              }}
-            />
+          </div>
+
+          <div className="p-6">
+            {isAutomatic ? (
+              <div className="rounded-2xl border border-dashed border-accent/30 bg-accent/5 p-6 transition-all duration-500">
+                <div className="flex items-start gap-4">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white shadow-soft">
+                    <ShieldCheck className="h-6 w-6 text-success" />
+                  </div>
+                  <div>
+                    <h3 className="font-display font-bold text-ink">Official TSPDCL Logic Enabled</h3>
+                    <p className="mt-1 text-sm leading-relaxed text-ink-muted">
+                      Billing automatically applies Telangana Domestic category-wise telescopic slabs based on units consumed.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-6 grid gap-4 sm:grid-cols-3">
+                  {TSSPDCL_DOMESTIC_2025_26.categories.map((cat) => (
+                    <div key={cat.id} className="group relative overflow-hidden rounded-xl bg-white/60 p-4 ring-1 ring-accent/10 transition-all hover:bg-white hover:shadow-soft">
+                      <div className="absolute right-0 top-0 h-12 w-12 translate-x-4 translate-y-[-1rem] opacity-5 transition-transform group-hover:scale-110">
+                        <Zap className="h-full w-full" />
+                      </div>
+                      <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.1em] text-accent">{cat.label}</p>
+                      <div className="space-y-1.5">
+                        {cat.slabs.map((s, idx) => (
+                          <div key={idx} className="flex justify-between text-[11px]">
+                            <span className="text-ink-muted">{s.from}{s.to ? `-${s.to}` : "+"} units</span>
+                            <span className="font-mono-bill font-bold text-ink">₹{s.rate.toFixed(2)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {t.slabs.map((s, i) => (
+                  <div key={i} className="group flex items-end gap-3 rounded-xl border border-paper-line bg-secondary/30 p-3 transition-all hover:bg-secondary/50">
+                    <NumField
+                      className="flex-1"
+                      label="From"
+                      value={s.from}
+                      onChange={(n) => updateSlab(i, { from: Number(n) || 0 })}
+                    />
+                    <div className="mb-3 text-ink-muted opacity-30"><ArrowRight className="h-4 w-4" /></div>
+                    <NumField
+                      className="flex-1"
+                      label="To"
+                      value={s.to ?? ""}
+                      placeholder="∞"
+                      onChange={(n) => updateSlab(i, { to: n === "" ? null : Number(n) })}
+                    />
+                    <NumField
+                      className="flex-1"
+                      label={`Rate (${t.currencySymbol})`}
+                      value={s.rate}
+                      step="0.01"
+                      onChange={(n) => updateSlab(i, { rate: Number(n) || 0 })}
+                    />
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => removeSlab(i)}
+                      className="mb-0.5 h-10 w-10 text-ink-muted hover:bg-destructive/10 hover:text-destructive"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+                <Button variant="outline" size="sm" className="mt-2 w-full gap-2 border-dashed py-6 text-ink-muted hover:border-accent hover:text-accent" onClick={addSlab}>
+                  <Plus className="h-4 w-4" /> Add Manual Slab
+                </Button>
+              </div>
+            )}
           </div>
         </Card>
-
-        <div className="sticky bottom-3 mt-5">
-          <Button onClick={onSave} className="w-full gap-1 bg-gradient-accent text-accent-foreground shadow-accent">
-            <Save className="h-4 w-4" /> Save Tariff
-          </Button>
-        </div>
       </main>
     </div>
   );
@@ -253,16 +173,21 @@ function Field({
   label,
   children,
   className = "",
+  icon,
 }: {
   label: string;
   children: React.ReactNode;
   className?: string;
+  icon?: React.ReactNode;
 }) {
   return (
-    <label className={`block ${className}`}>
-      <Label className="mb-1 block text-xs font-medium text-ink-muted">{label}</Label>
+    <div className={`space-y-1.5 ${className}`}>
+      <div className="flex items-center gap-1">
+        <Label className="text-xs font-bold uppercase tracking-wider text-ink-muted/80">{label}</Label>
+        {icon && <span className="text-ink-muted/40">{icon}</span>}
+      </div>
       {children}
-    </label>
+    </div>
   );
 }
 
@@ -289,7 +214,7 @@ function NumField({
         value={value}
         placeholder={placeholder}
         onChange={(e) => onChange(e.target.value)}
-        className="font-mono-bill"
+        className="font-mono-bill bg-white"
       />
     </Field>
   );
