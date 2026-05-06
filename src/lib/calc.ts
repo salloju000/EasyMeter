@@ -91,8 +91,11 @@ export function calculateBill(input: DomesticBillInput, tariff?: TariffConfig): 
     fixedChargePerKW = 50;
   }
 
+  const isAutomatic = !tariff?.slabs || tariff.slabs.length === 0;
   const fixedCharge = round2(
-    tariff && tariff.fixedCharge ? tariff.fixedCharge : contractedLoadKW * fixedChargePerKW
+    !isAutomatic && tariff && typeof tariff.fixedCharge === "number" 
+      ? tariff.fixedCharge 
+      : contractedLoadKW * fixedChargePerKW
   );
   const customerCharge = round2(getCustomerCharge(totalUnits));
   const electricityDuty = round2(totalUnits * 0.06);
