@@ -22,14 +22,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       return;
     }
 
-    const unsubscribe = onAuthStateChange((firebaseUser) => {
+    const unsubscribe = onAuthStateChange(async (firebaseUser) => {
       if (firebaseUser) {
         const uid = firebaseUser.uid;
-        setUser({ displayName: firebaseUser.displayName, email: firebaseUser.email, uid });
         setStorageUser(uid);
         setFirebaseUser(uid);
-        // Fetch user data from Firebase after sign-in
-        void syncUserDataFromFirebase();
+        // Fetch user data from Firebase before setting user state
+        await syncUserDataFromFirebase();
+        setUser({ displayName: firebaseUser.displayName, email: firebaseUser.email, uid });
       } else {
         setUser(null);
         setStorageUser(null);
