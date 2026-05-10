@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import { useAuth } from "@/lib/auth";
 import { AppHeader } from "@/components/AppHeader";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -19,16 +20,17 @@ import {
 } from "lucide-react";
 
 const TenantHistory = () => {
+  const { user } = useAuth();
   const { id } = useParams();
   const navigate = useNavigate();
 
-  const tenant = useMemo(() => loadTenants().find((t) => t.id === id), [id]);
+  const tenant = useMemo(() => loadTenants().find((t) => t.id === id), [id, user?.uid]);
 
   const bills = useMemo(() => {
     if (!tenant) return [];
     const key = tenant.name.trim().toLowerCase();
     return loadBills().filter((b) => b.tenantName.trim().toLowerCase() === key);
-  }, [tenant]);
+  }, [tenant, user?.uid]);
 
   const totalPaid = bills
     .filter((b) => b.paymentStatus === "paid")

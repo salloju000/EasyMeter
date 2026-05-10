@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { AppHeader } from "@/components/AppHeader";
+import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
@@ -35,13 +36,14 @@ import {
 import { toast } from "@/hooks/use-toast";
 
 const Index = () => {
+  const { user } = useAuth();
   const [bills, setBills] = useState<Bill[]>([]);
   const [toDelete, setToDelete] = useState<Bill | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
     setBills(loadBills());
-  }, []);
+  }, [user?.uid]);
 
   const confirmDelete = () => {
     if (!toDelete) return;

@@ -1,5 +1,6 @@
-import { useState, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { AppHeader } from "@/components/AppHeader";
+import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -41,11 +42,16 @@ import {
 import { Link } from "react-router-dom";
 
 const Tenants = () => {
+  const { user } = useAuth();
   const [tenants, setTenants] = useState<Tenant[]>(() => loadTenants());
   const [editing, setEditing] = useState<Tenant | null>(null);
   const [open, setOpen] = useState(false);
   const [toDelete, setToDelete] = useState<Tenant | null>(null);
   const [search, setSearch] = useState("");
+
+  useEffect(() => {
+    setTenants(loadTenants());
+  }, [user?.uid]);
 
   const refresh = () => setTenants(loadTenants());
 
@@ -92,7 +98,7 @@ const Tenants = () => {
     setToDelete(null);
   };
 
-  const bills = useMemo(() => loadBills(), []);
+  const bills = useMemo(() => loadBills(), [user?.uid]);
   const billCount = (name: string) =>
     bills.filter((b) => b.tenantName.trim().toLowerCase() === name.trim().toLowerCase()).length;
 

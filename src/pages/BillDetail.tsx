@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import { useAuth } from "@/lib/auth";
 import { AppHeader } from "@/components/AppHeader";
 import { BillView } from "@/components/BillView";
 import { Button } from "@/components/ui/button";
@@ -33,6 +34,7 @@ const fmtDate = (iso: string) =>
   new Date(iso).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
 
 const BillDetail = () => {
+  const { user } = useAuth();
   const { id } = useParams();
   const navigate = useNavigate();
   const [bill, setBill] = useState<Bill | null>(null);
@@ -48,7 +50,7 @@ const BillDetail = () => {
       return;
     }
     setBill(b);
-  }, [id, navigate]);
+  }, [id, navigate, user?.uid]);
 
   if (!bill) return null;
 

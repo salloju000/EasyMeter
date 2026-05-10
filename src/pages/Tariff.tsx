@@ -1,5 +1,6 @@
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import { AppHeader } from "@/components/AppHeader";
+import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -22,7 +23,12 @@ import {
 } from "lucide-react";
 
 const Tariff = () => {
+  const { user } = useAuth();
   const [t, setT] = useState<TariffConfig>(loadTariff());
+
+  useEffect(() => {
+    setT(loadTariff());
+  }, [user?.uid]);
 
   const update = (patch: Partial<TariffConfig>) => {
     setT((s) => {

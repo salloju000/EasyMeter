@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { useAuth } from "@/lib/auth";
 import { AppHeader } from "@/components/AppHeader";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -65,10 +66,16 @@ const NewBill = () => {
   const navigate = useNavigate();
   const { id: editId } = useParams();
   const isEdit = Boolean(editId);
-  const tariff = loadTariff();
+  const { user } = useAuth();
+  const [tariff, setTariff] = useState(loadTariff());
   const [tenants, setTenants] = useState<Tenant[]>(() => loadTenants());
 
-  const existing = useMemo(() => (editId ? getBill(editId) : undefined), [editId]);
+  useEffect(() => {
+    setTariff(loadTariff());
+    setTenants(loadTenants());
+  }, [user?.uid]);
+
+  const existing = useMemo(() => (editId ? getBill(editId) : undefined), [editId, user?.uid]);
 
   const [tenantName, setTenantName] = useState(existing?.tenantName ?? "");
   const [meterId, setMeterId] = useState(existing?.meterId ?? "");
