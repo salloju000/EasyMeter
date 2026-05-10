@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { useEffect } from "react";
 import { setFirebaseErrorHandler } from "@/lib/storage";
 import { toast } from "@/hooks/use-toast";
+import { AuthProvider } from "@/lib/auth";
 import Index from "./pages/Index.tsx";
 import NewBill from "./pages/NewBill.tsx";
 import BillDetail from "./pages/BillDetail.tsx";
@@ -29,23 +30,25 @@ const App = () => {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/new" element={<NewBill />} />
-            <Route path="/bill/:id" element={<BillDetail />} />
-            <Route path="/bill/:id/edit" element={<NewBill />} />
-            <Route path="/tenants" element={<Tenants />} />
-            <Route path="/tenants/:id" element={<TenantHistory />} />
-            <Route path="/tariff" element={<Tariff />} />
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
-      </TooltipProvider>
+      <AuthProvider>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <Routes>
+              <Route path="/" element={<Index />} />
+              <Route path="/new" element={<NewBill />} />
+              <Route path="/bill/:id" element={<BillDetail />} />
+              <Route path="/bill/:id/edit" element={<NewBill />} />
+              <Route path="/tenants" element={<Tenants />} />
+              <Route path="/tenants/:id" element={<TenantHistory />} />
+              <Route path="/tariff" element={<Tariff />} />
+              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </BrowserRouter>
+        </TooltipProvider>
+      </AuthProvider>
     </QueryClientProvider>
   );
 };

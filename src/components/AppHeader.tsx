@@ -1,11 +1,14 @@
-import { Zap } from "lucide-react";
+import { Zap, User } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { isFirebaseEnabled } from "@/lib/firebase";
+import { useAuth } from "@/lib/auth";
+import { Button } from "@/components/ui/button";
 
 export const AppHeader = () => {
   const { pathname } = useLocation();
   const firebaseEnabled = isFirebaseEnabled();
+  const { user, loading, signIn, signOut } = useAuth();
   const tabs = [
     { to: "/", label: "Bills" },
     { to: "/new", label: "New" },
@@ -35,6 +38,23 @@ export const AppHeader = () => {
           >
             {firebaseEnabled ? "Firebase sync enabled" : "Firebase sync disabled"}
           </span>
+          {firebaseEnabled && (
+            <div className="flex items-center gap-2">
+              {user ? (
+                <div className="flex items-center gap-2 rounded-full bg-secondary px-3 py-1.5 text-xs font-medium">
+                  <User className="h-4 w-4 text-ink-muted" />
+                  <span>{user.displayName ?? user.email ?? "Signed in"}</span>
+                  <Button size="sm" variant="outline" onClick={signOut} disabled={loading}>
+                    Sign out
+                  </Button>
+                </div>
+              ) : (
+                <Button size="sm" variant="secondary" onClick={signIn} disabled={loading}>
+                  Sign in with Google
+                </Button>
+              )}
+            </div>
+          )}
           <nav className="flex items-center gap-1 rounded-full bg-secondary p-1 text-xs font-medium">
             {tabs.map((t) => {
               const active = t.to === "/" ? pathname === "/" : pathname.startsWith(t.to);

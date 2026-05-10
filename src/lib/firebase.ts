@@ -1,5 +1,13 @@
 import { initializeApp } from "firebase/app";
 import { deleteDoc, doc, getFirestore, setDoc } from "firebase/firestore";
+import {
+  getAuth,
+  GoogleAuthProvider,
+  onAuthStateChanged,
+  signInWithPopup,
+  signOut as firebaseSignOut,
+  type User,
+} from "firebase/auth";
 import type { Bill, TariffConfig, Tenant } from "./types";
 
 const firebaseConfig = {
@@ -18,19 +26,22 @@ const isConfigComplete = Boolean(
 );
 
 let db: ReturnType<typeof getFirestore> | null = null;
+let auth: ReturnType<typeof getAuth> | null = null;
 
 if (isConfigComplete) {
   try {
     const app = initializeApp(firebaseConfig);
     db = getFirestore(app);
+    auth = getAuth(app);
   } catch (error) {
     console.warn("Firebase initialization failed", error);
     db = null;
+    auth = null;
   }
 }
 
 export function isFirebaseEnabled() {
-  return db !== null;
+  return db !== null && auth !== null;
 }
 
 function assertFirebase() {
@@ -38,6 +49,30 @@ function assertFirebase() {
     throw new Error("Firebase is not configured. Set VITE_FIREBASE_* env vars.");
   }
   return db;
+}
+
+function assertFirebaseAuth() {
+  if (!auth) {
+    throw new Error("Firebase Auth is not configured. Set VITE_FIREBASE_* env vars.");
+  }
+  return auth;
+}
+
+export function onAuthStateChange(callback: (user: User | null) => void) {
+  if (!auth) {
+    return () => undefined;
+  }
+  return onAuthStateChanged(auth, callback);
+}
+
+export function signInWithGoogle() {
+  const authInstance = assertFirebaseAuth();
+  const provider = new GoogleAuthProvider();
+  return signInWithPopup(authInstance, provider);
+}
+
+export function signOutGoogle() {
+  return firebaseSignOut(assertFirebaseAuth());
 }
 
 // Helper to remove undefined values from objects before saving to Firestore
