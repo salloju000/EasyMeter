@@ -1,8 +1,31 @@
 import type { BackupPayload, Bill, TariffConfig, Tenant } from "./types";
+import {
+  deleteBillFromFirebase,
+  deleteTenantFromFirebase,
+  isFirebaseEnabled,
+  saveBillToFirebase,
+  saveTariffToFirebase,
+  saveTenantToFirebase,
+} from "./firebase";
 
 const TARIFF_KEY = "submetercalc.tariff.v1";
 const BILLS_KEY = "submetercalc.bills.v1";
 const TENANTS_KEY = "submetercalc.tenants.v1";
+
+// Global error handler for Firebase sync failures
+let firebaseErrorHandler: ((error: Error) => void) | null = null;
+
+export function setFirebaseErrorHandler(handler: (error: Error) => void) {
+  firebaseErrorHandler = handler;
+}
+
+function syncFirebase(fn: () => Promise<void>) {
+  if (!isFirebaseEnabled()) return;
+  void fn().catch((error) => {
+    console.warn("Firebase sync failed", error);
+    firebaseErrorHandler?.(error as Error);
+  });
+}
 
 export const AP_DEFAULT_TARIFF: TariffConfig = {
   slabs: [],
@@ -24,6 +47,7 @@ export function loadTariff(): TariffConfig {
 
 export function saveTariff(t: TariffConfig) {
   localStorage.setItem(TARIFF_KEY, JSON.stringify(t));
+  syncFirebase(() => saveTariffToFirebase(t));
 }
 
 export function loadBills(): Bill[] {
@@ -41,11 +65,13 @@ export function saveBill(bill: Bill) {
   const all = loadBills().filter((b) => b.id !== bill.id);
   all.unshift(bill);
   localStorage.setItem(BILLS_KEY, JSON.stringify(all));
+  syncFirebase(() => saveBillToFirebase(bill));
 }
 
 export function deleteBill(id: string) {
   const all = loadBills().filter((b) => b.id !== id);
   localStorage.setItem(BILLS_KEY, JSON.stringify(all));
+  syncFirebase(() => deleteBillFromFirebase(id));
 }
 
 export function getBill(id: string): Bill | undefined {
@@ -81,11 +107,13 @@ export function saveTenant(t: Tenant) {
   const all = loadTenants().filter((x) => x.id !== t.id);
   all.push(t);
   localStorage.setItem(TENANTS_KEY, JSON.stringify(all));
+  syncFirebase(() => saveTenantToFirebase(t));
 }
 
 export function deleteTenant(id: string) {
   const all = loadTenants().filter((x) => x.id !== id);
   localStorage.setItem(TENANTS_KEY, JSON.stringify(all));
+  syncFirebase(() => deleteTenantFromFirebase(id));
 }
 
 export function findTenantByName(name: string): Tenant | undefined {

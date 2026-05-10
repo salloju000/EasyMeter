@@ -93,7 +93,7 @@ export function calculateBill(input: DomesticBillInput, tariff?: TariffConfig): 
 
   const isAutomatic = !tariff?.slabs || tariff.slabs.length === 0;
   const fixedCharge = round2(
-    !isAutomatic && tariff && typeof tariff.fixedCharge === "number" 
+    !isAutomatic && tariff && typeof tariff.fixedCharge === "number" && tariff.fixedCharge > 0
       ? tariff.fixedCharge 
       : contractedLoadKW * fixedChargePerKW
   );
