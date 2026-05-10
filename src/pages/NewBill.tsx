@@ -36,7 +36,6 @@ import {
   ArrowLeft, 
   Zap, 
   Users, 
-  Calendar, 
   ChevronRight, 
   ShieldCheck, 
   Sparkles,
@@ -99,6 +98,7 @@ const NewBill = () => {
   );
   const [paid, setPaid] = useState(existing?.paymentStatus === "paid");
   const [lateDays, setLateDays] = useState<string>("0");
+  const [contractedLoadKW, setContractedLoadKW] = useState<string>("1");
   const [notes, setNotes] = useState(existing?.notes ?? "");
   const [tenantPickerOpen, setTenantPickerOpen] = useState(false);
 
@@ -144,13 +144,13 @@ const NewBill = () => {
     }
     return calculateBill({ 
       totalUnits: units,
-      contractedLoadKW: 1,
+      contractedLoadKW: Number(contractedLoadKW) || 1,
       daysLate: Number(lateDays) || 0,
       interestOnED: Number(interestOnED) || 0,
       surchargePerUnit: Number(surchargePerUnit) || 0,
       lossGainPercent: Number(lossGainPercent) || 0,
     }, tariff);
-  }, [units, lateDays, interestOnED, surchargePerUnit, lossGainPercent, tariff, previousReading, currentReading]);
+  }, [units, contractedLoadKW, lateDays, interestOnED, surchargePerUnit, lossGainPercent, tariff, previousReading, currentReading]);
 
   const validationError = (): string | null => {
     if (!tenantName.trim()) return "Tenant name is required.";
@@ -405,11 +405,20 @@ const NewBill = () => {
               <div className="bg-secondary/50 px-6 py-4">
                 <div className="flex items-center gap-2">
                   <ShieldCheck className="h-4 w-4 text-accent" />
-                  <h2 className="font-display text-lg font-bold text-ink">Surcharges & Adjustments</h2>
+                  <h2 className="font-display text-lg font-bold text-ink">Load & Surcharges</h2>
                 </div>
               </div>
               <div className="p-6">
                 <div className="grid gap-5 sm:grid-cols-3">
+                  <Field label="Contracted Load (kW) *">
+                    <Input
+                      inputMode="decimal"
+                      value={contractedLoadKW}
+                      onChange={(e) => setContractedLoadKW(e.target.value)}
+                      placeholder="1.0"
+                      className="h-11 font-mono-bill bg-white"
+                    />
+                  </Field>
                   <Field label="Interest on ED (₹)">
                     <Input
                       inputMode="decimal"
