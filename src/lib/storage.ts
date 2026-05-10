@@ -19,8 +19,8 @@ export function setCurrentUser(userId: string | null) {
   currentUserId = userId;
 }
 
-function getStorageKey(baseKey: string): string {
-  if (!currentUserId) return baseKey;
+function getStorageKey(baseKey: string): string | null {
+  if (!currentUserId) return null;
   return `${baseKey}.user.${currentUserId}`;
 }
 
@@ -76,7 +76,9 @@ export const AP_DEFAULT_TARIFF: TariffConfig = {
 
 export function loadTariff(): TariffConfig {
   try {
-    const raw = localStorage.getItem(getStorageKey(TARIFF_BASE_KEY));
+    const key = getStorageKey(TARIFF_BASE_KEY);
+    if (!key) return AP_DEFAULT_TARIFF;
+    const raw = localStorage.getItem(key);
     if (!raw) return AP_DEFAULT_TARIFF;
     return { ...AP_DEFAULT_TARIFF, ...JSON.parse(raw) };
   } catch {
@@ -85,13 +87,17 @@ export function loadTariff(): TariffConfig {
 }
 
 export function saveTariff(t: TariffConfig) {
-  localStorage.setItem(getStorageKey(TARIFF_BASE_KEY), JSON.stringify(t));
+  const key = getStorageKey(TARIFF_BASE_KEY);
+  if (!key) return;
+  localStorage.setItem(key, JSON.stringify(t));
   syncFirebase(() => saveTariffToFirebase(t));
 }
 
 export function loadBills(): Bill[] {
   try {
-    const raw = localStorage.getItem(getStorageKey(BILLS_BASE_KEY));
+    const key = getStorageKey(BILLS_BASE_KEY);
+    if (!key) return [];
+    const raw = localStorage.getItem(key);
     if (!raw) return [];
     const arr = JSON.parse(raw) as Bill[];
     return arr.sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
@@ -101,15 +107,19 @@ export function loadBills(): Bill[] {
 }
 
 export function saveBill(bill: Bill) {
+  const key = getStorageKey(BILLS_BASE_KEY);
+  if (!key) return;
   const all = loadBills().filter((b) => b.id !== bill.id);
   all.unshift(bill);
-  localStorage.setItem(getStorageKey(BILLS_BASE_KEY), JSON.stringify(all));
+  localStorage.setItem(key, JSON.stringify(all));
   syncFirebase(() => saveBillToFirebase(bill));
 }
 
 export function deleteBill(id: string) {
+  const key = getStorageKey(BILLS_BASE_KEY);
+  if (!key) return;
   const all = loadBills().filter((b) => b.id !== id);
-  localStorage.setItem(getStorageKey(BILLS_BASE_KEY), JSON.stringify(all));
+  localStorage.setItem(key, JSON.stringify(all));
   syncFirebase(() => deleteBillFromFirebase(id));
 }
 
@@ -133,7 +143,9 @@ export function uid(): string {
 
 export function loadTenants(): Tenant[] {
   try {
-    const raw = localStorage.getItem(getStorageKey(TENANTS_BASE_KEY));
+    const key = getStorageKey(TENANTS_BASE_KEY);
+    if (!key) return [];
+    const raw = localStorage.getItem(key);
     if (!raw) return [];
     const arr = JSON.parse(raw) as Tenant[];
     return arr.sort((a, b) => a.name.localeCompare(b.name));
@@ -143,15 +155,19 @@ export function loadTenants(): Tenant[] {
 }
 
 export function saveTenant(t: Tenant) {
+  const key = getStorageKey(TENANTS_BASE_KEY);
+  if (!key) return;
   const all = loadTenants().filter((x) => x.id !== t.id);
   all.push(t);
-  localStorage.setItem(getStorageKey(TENANTS_BASE_KEY), JSON.stringify(all));
+  localStorage.setItem(key, JSON.stringify(all));
   syncFirebase(() => saveTenantToFirebase(t));
 }
 
 export function deleteTenant(id: string) {
+  const key = getStorageKey(TENANTS_BASE_KEY);
+  if (!key) return;
   const all = loadTenants().filter((x) => x.id !== id);
-  localStorage.setItem(getStorageKey(TENANTS_BASE_KEY), JSON.stringify(all));
+  localStorage.setItem(key, JSON.stringify(all));
   syncFirebase(() => deleteTenantFromFirebase(id));
 }
 
