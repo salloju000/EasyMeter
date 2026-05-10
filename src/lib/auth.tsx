@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { isFirebaseEnabled, onAuthStateChange, signInWithGoogle, signOutGoogle, setCurrentUser as setFirebaseUser } from "./firebase";
-import { setCurrentUser as setStorageUser } from "./storage";
+import { setCurrentUser as setStorageUser, syncUserDataFromFirebase } from "./storage";
 import { toast } from "@/hooks/use-toast";
 
 interface AuthContextValue {
@@ -28,6 +28,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setUser({ displayName: firebaseUser.displayName, email: firebaseUser.email, uid });
         setStorageUser(uid);
         setFirebaseUser(uid);
+        // Fetch user data from Firebase after sign-in
+        void syncUserDataFromFirebase();
       } else {
         setUser(null);
         setStorageUser(null);

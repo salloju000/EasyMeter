@@ -6,6 +6,9 @@ import {
   saveBillToFirebase,
   saveTariffToFirebase,
   saveTenantToFirebase,
+  loadBillsFromFirebase,
+  loadTenantsFromFirebase,
+  loadTariffFromFirebase,
 } from "./firebase";
 
 // Global state for current user and error handler
@@ -28,6 +31,32 @@ const TENANTS_BASE_KEY = "submetercalc.tenants.v1";
 export function setFirebaseErrorHandler(handler: (error: Error) => void) {
   firebaseErrorHandler = handler;
 }
+
+export async function syncUserDataFromFirebase() {
+  if (!currentUserId || !isFirebaseEnabled()) return;
+
+  try {
+    const [bills, tenants, tariff] = await Promise.all([
+      loadBillsFromFirebase(),
+      loadTenantsFromFirebase(),
+      loadTariffFromFirebase(),
+    ]);
+
+    if (bills.length > 0) {
+      localStorage.setItem(getStorageKey(BILLS_BASE_KEY), JSON.stringify(bills));
+    }
+    if (tenants.length > 0) {
+      localStorage.setItem(getStorageKey(TENANTS_BASE_KEY), JSON.stringify(tenants));
+    }
+    if (tariff) {
+      localStorage.setItem(getStorageKey(TARIFF_BASE_KEY), JSON.stringify(tariff));
+    }
+  } catch (error) {
+    console.warn("Failed to sync user data from Firebase", error);
+    firebaseErrorHandler?.(error as Error);
+  }
+}
+
 
 function syncFirebase(fn: () => Promise<void>) {
   if (!isFirebaseEnabled()) return;

@@ -1,5 +1,13 @@
 import { initializeApp } from "firebase/app";
-import { deleteDoc, doc, getFirestore, setDoc } from "firebase/firestore";
+import {
+  deleteDoc,
+  doc,
+  getFirestore,
+  setDoc,
+  collection,
+  getDocs,
+  getDoc,
+} from "firebase/firestore";
 import {
   getAuth,
   GoogleAuthProvider,
@@ -124,5 +132,49 @@ export async function saveTariffToFirebase(tariff: TariffConfig) {
   if (!currentUserId) return; // Skip if no user
   const firestore = assertFirebase();
   await setDoc(doc(firestore, getCollectionPath("config"), "tariff"), { tariff: sanitizeForFirestore(tariff) }, { merge: true });
+}
+
+export async function loadBillsFromFirebase(): Promise<Bill[]> {
+  if (!currentUserId) return [];
+  try {
+    const firestore = assertFirebase();
+    const billsCollection = collection(firestore, getCollectionPath("bills"));
+    const snapshot = await getDocs(billsCollection);
+    const bills = snapshot.docs.map((doc) => doc.data() as Bill);
+    return bills.sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+  } catch (error) {
+    console.warn("Failed to load bills from Firebase", error);
+    return [];
+  }
+}
+
+export async function loadTenantsFromFirebase(): Promise<Tenant[]> {
+  if (!currentUserId) return [];
+  try {
+    const firestore = assertFirebase();
+    const tenantsCollection = collection(firestore, getCollectionPath("tenants"));
+    const snapshot = await getDocs(tenantsCollection);
+    const tenants = snapshot.docs.map((doc) => doc.data() as Tenant);
+    return tenants.sort((a, b) => a.name.localeCompare(b.name));
+  } catch (error) {
+    console.warn("Failed to load tenants from Firebase", error);
+    return [];
+  }
+}
+
+export async function loadTariffFromFirebase(): Promise<TariffConfig | null> {
+  if (!currentUserId) return null;
+  try {
+    const firestore = assertFirebase();
+    const tariffDoc = await getDoc(doc(firestore, getCollectionPath("config"), "tariff"));
+    if (tariffDoc.exists()) {
+      const data = tariffDoc.data() as { tariff?: TariffConfig };
+      return data.tariff || null;
+    }
+    return null;
+  } catch (error) {
+    console.warn("Failed to load tariff from Firebase", error);
+    return null;
+  }
 }
 
