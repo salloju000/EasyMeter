@@ -1,9 +1,10 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import { isFirebaseEnabled, onAuthStateChange, signInWithGoogle, signOutGoogle } from "./firebase";
+import { isFirebaseEnabled, onAuthStateChange, signInWithGoogle, signOutGoogle, setCurrentUser as setFirebaseUser } from "./firebase";
+import { setCurrentUser as setStorageUser } from "./storage";
 import { toast } from "@/hooks/use-toast";
 
 interface AuthContextValue {
-  user: { displayName: string | null; email: string | null } | null;
+  user: { displayName: string | null; email: string | null; uid: string } | null;
   loading: boolean;
   signIn: () => Promise<void>;
   signOut: () => Promise<void>;
@@ -23,9 +24,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     const unsubscribe = onAuthStateChange((firebaseUser) => {
       if (firebaseUser) {
-        setUser({ displayName: firebaseUser.displayName, email: firebaseUser.email });
+        const uid = firebaseUser.uid;
+        setUser({ displayName: firebaseUser.displayName, email: firebaseUser.email, uid });
+        setStorageUser(uid);
+        setFirebaseUser(uid);
       } else {
         setUser(null);
+        setStorageUser(null);
+        setFirebaseUser(null);
       }
       setLoading(false);
     });

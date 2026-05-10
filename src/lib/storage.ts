@@ -8,12 +8,22 @@ import {
   saveTenantToFirebase,
 } from "./firebase";
 
-const TARIFF_KEY = "submetercalc.tariff.v1";
-const BILLS_KEY = "submetercalc.bills.v1";
-const TENANTS_KEY = "submetercalc.tenants.v1";
-
-// Global error handler for Firebase sync failures
+// Global state for current user and error handler
+let currentUserId: string | null = null;
 let firebaseErrorHandler: ((error: Error) => void) | null = null;
+
+export function setCurrentUser(userId: string | null) {
+  currentUserId = userId;
+}
+
+function getStorageKey(baseKey: string): string {
+  if (!currentUserId) return baseKey;
+  return `${baseKey}.user.${currentUserId}`;
+}
+
+const TARIFF_BASE_KEY = "submetercalc.tariff.v1";
+const BILLS_BASE_KEY = "submetercalc.bills.v1";
+const TENANTS_BASE_KEY = "submetercalc.tenants.v1";
 
 export function setFirebaseErrorHandler(handler: (error: Error) => void) {
   firebaseErrorHandler = handler;
@@ -37,7 +47,7 @@ export const AP_DEFAULT_TARIFF: TariffConfig = {
 
 export function loadTariff(): TariffConfig {
   try {
-    const raw = localStorage.getItem(TARIFF_KEY);
+    const raw = localStorage.getItem(getStorageKey(TARIFF_BASE_KEY));
     if (!raw) return AP_DEFAULT_TARIFF;
     return { ...AP_DEFAULT_TARIFF, ...JSON.parse(raw) };
   } catch {
@@ -46,13 +56,13 @@ export function loadTariff(): TariffConfig {
 }
 
 export function saveTariff(t: TariffConfig) {
-  localStorage.setItem(TARIFF_KEY, JSON.stringify(t));
+  localStorage.setItem(getStorageKey(TARIFF_BASE_KEY), JSON.stringify(t));
   syncFirebase(() => saveTariffToFirebase(t));
 }
 
 export function loadBills(): Bill[] {
   try {
-    const raw = localStorage.getItem(BILLS_KEY);
+    const raw = localStorage.getItem(getStorageKey(BILLS_BASE_KEY));
     if (!raw) return [];
     const arr = JSON.parse(raw) as Bill[];
     return arr.sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
@@ -64,13 +74,13 @@ export function loadBills(): Bill[] {
 export function saveBill(bill: Bill) {
   const all = loadBills().filter((b) => b.id !== bill.id);
   all.unshift(bill);
-  localStorage.setItem(BILLS_KEY, JSON.stringify(all));
+  localStorage.setItem(getStorageKey(BILLS_BASE_KEY), JSON.stringify(all));
   syncFirebase(() => saveBillToFirebase(bill));
 }
 
 export function deleteBill(id: string) {
   const all = loadBills().filter((b) => b.id !== id);
-  localStorage.setItem(BILLS_KEY, JSON.stringify(all));
+  localStorage.setItem(getStorageKey(BILLS_BASE_KEY), JSON.stringify(all));
   syncFirebase(() => deleteBillFromFirebase(id));
 }
 
@@ -94,7 +104,7 @@ export function uid(): string {
 
 export function loadTenants(): Tenant[] {
   try {
-    const raw = localStorage.getItem(TENANTS_KEY);
+    const raw = localStorage.getItem(getStorageKey(TENANTS_BASE_KEY));
     if (!raw) return [];
     const arr = JSON.parse(raw) as Tenant[];
     return arr.sort((a, b) => a.name.localeCompare(b.name));
@@ -106,13 +116,13 @@ export function loadTenants(): Tenant[] {
 export function saveTenant(t: Tenant) {
   const all = loadTenants().filter((x) => x.id !== t.id);
   all.push(t);
-  localStorage.setItem(TENANTS_KEY, JSON.stringify(all));
+  localStorage.setItem(getStorageKey(TENANTS_BASE_KEY), JSON.stringify(all));
   syncFirebase(() => saveTenantToFirebase(t));
 }
 
 export function deleteTenant(id: string) {
   const all = loadTenants().filter((x) => x.id !== id);
-  localStorage.setItem(TENANTS_KEY, JSON.stringify(all));
+  localStorage.setItem(getStorageKey(TENANTS_BASE_KEY), JSON.stringify(all));
   syncFirebase(() => deleteTenantFromFirebase(id));
 }
 
@@ -176,16 +186,16 @@ export function importBackup(
   }
 
   if (mode === "replace") {
-    localStorage.setItem(BILLS_KEY, JSON.stringify(p.bills));
-    localStorage.setItem(TENANTS_KEY, JSON.stringify(p.tenants));
+    localStorage.setItem(getStorageKey(BILLS_BASE_KEY), JSON.stringify(p.bills));
+    localStorage.setItem(getStorageKey(TENANTS_BASE_KEY), JSON.stringify(p.tenants));
   } else {
     const billMap = new Map<string, Bill>();
     [...loadBills(), ...p.bills].forEach((b) => billMap.set(b.id, b));
-    localStorage.setItem(BILLS_KEY, JSON.stringify(Array.from(billMap.values())));
+    localStorage.setItem(getStorageKey(BILLS_BASE_KEY), JSON.stringify(Array.from(billMap.values())));
 
     const tenantMap = new Map<string, Tenant>();
     [...loadTenants(), ...p.tenants].forEach((t) => tenantMap.set(t.id, t));
-    localStorage.setItem(TENANTS_KEY, JSON.stringify(Array.from(tenantMap.values())));
+    localStorage.setItem(getStorageKey(TENANTS_BASE_KEY), JSON.stringify(Array.from(tenantMap.values())));
   }
   saveTariff(p.tariff);
   return { bills: p.bills.length, tenants: p.tenants.length };

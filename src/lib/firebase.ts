@@ -27,6 +27,7 @@ const isConfigComplete = Boolean(
 
 let db: ReturnType<typeof getFirestore> | null = null;
 let auth: ReturnType<typeof getAuth> | null = null;
+let currentUserId: string | null = null;
 
 if (isConfigComplete) {
   try {
@@ -38,6 +39,10 @@ if (isConfigComplete) {
     db = null;
     auth = null;
   }
+}
+
+export function setCurrentUser(userId: string | null) {
+  currentUserId = userId;
 }
 
 export function isFirebaseEnabled() {
@@ -56,6 +61,11 @@ function assertFirebaseAuth() {
     throw new Error("Firebase Auth is not configured. Set VITE_FIREBASE_* env vars.");
   }
   return auth;
+}
+
+function getCollectionPath(collection: string): string {
+  if (!currentUserId) throw new Error("No authenticated user");
+  return `users/${currentUserId}/${collection}`;
 }
 
 export function onAuthStateChange(callback: (user: User | null) => void) {
@@ -87,26 +97,32 @@ export function sanitizeForFirestore<T extends Record<string, any>>(obj: T): Par
 }
 
 export async function saveBillToFirebase(bill: Bill) {
+  if (!currentUserId) return; // Skip if no user
   const firestore = assertFirebase();
-  await setDoc(doc(firestore, "bills", bill.id), sanitizeForFirestore(bill), { merge: true });
+  await setDoc(doc(firestore, getCollectionPath("bills"), bill.id), sanitizeForFirestore(bill), { merge: true });
 }
 
 export async function deleteBillFromFirebase(id: string) {
+  if (!currentUserId) return; // Skip if no user
   const firestore = assertFirebase();
-  await deleteDoc(doc(firestore, "bills", id));
+  await deleteDoc(doc(firestore, getCollectionPath("bills"), id));
 }
 
 export async function saveTenantToFirebase(tenant: Tenant) {
+  if (!currentUserId) return; // Skip if no user
   const firestore = assertFirebase();
-  await setDoc(doc(firestore, "tenants", tenant.id), sanitizeForFirestore(tenant), { merge: true });
+  await setDoc(doc(firestore, getCollectionPath("tenants"), tenant.id), sanitizeForFirestore(tenant), { merge: true });
 }
 
 export async function deleteTenantFromFirebase(id: string) {
+  if (!currentUserId) return; // Skip if no user
   const firestore = assertFirebase();
-  await deleteDoc(doc(firestore, "tenants", id));
+  await deleteDoc(doc(firestore, getCollectionPath("tenants"), id));
 }
 
 export async function saveTariffToFirebase(tariff: TariffConfig) {
+  if (!currentUserId) return; // Skip if no user
   const firestore = assertFirebase();
-  await setDoc(doc(firestore, "config", "tariff"), { tariff: sanitizeForFirestore(tariff) }, { merge: true });
+  await setDoc(doc(firestore, getCollectionPath("config"), "tariff"), { tariff: sanitizeForFirestore(tariff) }, { merge: true });
 }
+
