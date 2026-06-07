@@ -44,6 +44,7 @@ export interface BillCalculation {
   lossGain: number;
   lossGainPercent?: number;
   lateFee: number;
+  arrears?: number;
   total: number;
   extras?: ExtraCharge[];
   // Included to prevent TS errors on older saved bills during transition, optional.
@@ -69,6 +70,11 @@ export interface Bill {
   notes?: string;
   isRollover?: boolean;
   maxReading?: number;
+  previousBillId?: string;
+  previousBillMonth?: string;
+  previousBillAmount?: number;
+  previousBillStatus?: PaymentStatus;
+  arrears?: number;
   createdAt: string;
 }
 

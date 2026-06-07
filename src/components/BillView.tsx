@@ -76,6 +76,31 @@ export const BillView = forwardRef<HTMLDivElement, Props>(({ bill }, ref) => {
         />
       </div>
 
+      {/* Account Summary if there is previous bill history */}
+      {bill.previousBillMonth && (
+        <div className="border-b border-paper-line bg-secondary/15 px-5 py-2.5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+            <div className="flex items-center gap-2">
+              <span className="font-bold text-ink-muted uppercase tracking-wider text-[9px]">Previous Bill:</span>
+              <span className="font-semibold text-ink">{fmtMonth(bill.previousBillMonth)}</span>
+              <span className="text-paper-line">|</span>
+              <span className="font-mono-bill font-bold text-ink">{formatMoney(bill.previousBillAmount ?? 0, sym)}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="font-bold text-ink-muted uppercase tracking-wider text-[9px]">Previous Status:</span>
+              {bill.previousBillStatus === "paid" ? (
+                <span className="rounded bg-success/15 px-1.5 py-0.5 text-[9px] font-bold tracking-wider text-success uppercase">Settled</span>
+              ) : (
+                <span className="rounded bg-warning/15 px-1.5 py-0.5 text-[9px] font-bold tracking-wider text-warning uppercase">Unpaid</span>
+              )}
+              {bill.arrears && bill.arrears > 0 ? (
+                <span className="font-bold text-warning ml-1">(Arrears: {formatMoney(bill.arrears, sym)})</span>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Readings */}
       <div className="grid grid-cols-3 gap-px bg-paper-line border-b border-paper-line">
         <ReadingCell label="Previous" value={bill.previousReading} />
@@ -131,6 +156,9 @@ export const BillView = forwardRef<HTMLDivElement, Props>(({ bill }, ref) => {
             <ChargeRow key={e.id} label={e.label} value={e.amount} sym={sym} />
           ))}
           {c.lateFee > 0 && <ChargeRow label="Late Fee" value={c.lateFee} sym={sym} tone="warning" />}
+          {c.arrears && c.arrears > 0 ? (
+            <ChargeRow label="Arrears (Previous Dues)" value={c.arrears} sym={sym} tone="warning" />
+          ) : null}
         </div>
 
         {/* Total */}

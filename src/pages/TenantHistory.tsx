@@ -121,8 +121,16 @@ const TenantHistory = () => {
           <div className="mb-3 flex items-center justify-between">
             <h2 className="font-display text-lg font-bold text-ink">Bills</h2>
             <Button asChild size="sm" variant="outline" className="gap-1">
-              <Link to="/new" state={{ prefillTenantId: tenant.id }}>
+              <Link to={`/new?tenant=${encodeURIComponent(tenant.name)}`}>
                 <Plus className="h-3.5 w-3.5" /> New
+              </Link>
+            </Button>
+          </div>
+
+          <div className="mb-6">
+            <Button asChild className="w-full h-14 gap-2 bg-gradient-accent text-accent-foreground shadow-accent transition-all hover:scale-[0.98]">
+              <Link to={`/new?tenant=${encodeURIComponent(tenant.name)}`}>
+                <Plus className="h-5 w-5" /> Generate Next Statement
               </Link>
             </Button>
           </div>
@@ -134,7 +142,7 @@ const TenantHistory = () => {
               </div>
               <p className="mt-3 font-medium text-ink">No bills yet for this tenant</p>
               <Button asChild className="mt-4">
-                <Link to="/new">
+                <Link to={`/new?tenant=${encodeURIComponent(tenant.name)}`}>
                   <Plus className="mr-1 h-4 w-4" /> Create Bill
                 </Link>
               </Button>

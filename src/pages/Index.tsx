@@ -14,7 +14,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { loadBills, deleteBill } from "@/lib/storage";
+import { loadBills, deleteBill, findTenantByName } from "@/lib/storage";
 import type { Bill } from "@/lib/types";
 import { formatMoney, formatUnits } from "@/lib/calc";
 import {
@@ -150,52 +150,65 @@ const Index = () => {
               </div>
             ) : (
               <div className="space-y-4">
-                {bills.map((b) => (
-                  <div key={b.id} className="group relative">
-                    <Link
-                      to={`/bill/${b.id}`}
-                      className="flex items-center gap-5 rounded-[1.5rem] bg-white p-5 shadow-soft transition-all hover:shadow-card group-hover:-translate-y-1"
-                    >
-                      <div className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-secondary/50 text-accent transition-transform group-hover:scale-110">
-                        <Zap className="h-7 w-7" strokeWidth={2.5} />
+                {(() => {
+                  const latestBillsByTenant = new Map<string, typeof bills[0]>();
+                  for (const b of bills) {
+                    const key = b.tenantName.trim().toLowerCase();
+                    if (!latestBillsByTenant.has(key)) {
+                      latestBillsByTenant.set(key, b);
+                    }
+                  }
+                  return Array.from(latestBillsByTenant.values()).map((b) => {
+                    const t = findTenantByName(b.tenantName);
+                    const linkTarget = t ? `/tenants/${t.id}` : `/bill/${b.id}`;
+                    return (
+                      <div key={b.id} className="group relative">
+                        <Link
+                          to={linkTarget}
+                          className="flex items-center gap-5 rounded-[1.5rem] bg-white p-5 shadow-soft transition-all hover:shadow-card group-hover:-translate-y-1"
+                        >
+                          <div className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-secondary/50 text-accent transition-transform group-hover:scale-110">
+                            <Zap className="h-7 w-7" strokeWidth={2.5} />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-3">
+                              <span className="truncate font-display text-xl font-bold text-ink">{b.tenantName}</span>
+                              <StatusPill status={b.paymentStatus} />
+                            </div>
+                            <div className="mt-1 flex items-center gap-4 text-[13px] text-ink-muted">
+                              <span className="flex items-center gap-1.5 font-medium">
+                                <CalendarDays className="h-4 w-4 opacity-40" />
+                                Latest: {formatMonthShort(b.billingMonth)}
+                              </span>
+                              <span className="h-1 w-1 rounded-full bg-paper-line" />
+                              <span className="flex items-center gap-1.5 font-medium">
+                                <Zap className="h-4 w-4 opacity-40" />
+                                {b.calculation.unitsConsumed} Units
+                              </span>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className="font-mono-bill text-2xl font-bold text-ink">
+                              {formatMoney(b.calculation.total)}
+                            </div>
+                            <div className="mt-1 inline-flex items-center rounded-lg bg-accent/5 px-2 py-1 text-[10px] font-bold uppercase tracking-widest text-accent opacity-0 transition-opacity group-hover:opacity-100">
+                              View History <ChevronRight className="h-3 w-3" />
+                            </div>
+                          </div>
+                        </Link>
+                        <button
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setToDelete(b);
+                          }}
+                          className="absolute -right-3 -top-3 grid h-10 w-10 place-items-center rounded-full bg-white text-ink-muted shadow-xl ring-1 ring-paper-line opacity-0 transition-all hover:bg-destructive hover:text-white group-hover:opacity-100"
+                        >
+                          <Trash2 className="h-5 w-5" />
+                        </button>
                       </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-3">
-                          <span className="truncate font-display text-xl font-bold text-ink">{b.tenantName}</span>
-                          <StatusPill status={b.paymentStatus} />
-                        </div>
-                        <div className="mt-1 flex items-center gap-4 text-[13px] text-ink-muted">
-                          <span className="flex items-center gap-1.5 font-medium">
-                            <CalendarDays className="h-4 w-4 opacity-40" />
-                            {formatMonthShort(b.billingMonth)}
-                          </span>
-                          <span className="h-1 w-1 rounded-full bg-paper-line" />
-                          <span className="flex items-center gap-1.5 font-medium">
-                            <Zap className="h-4 w-4 opacity-40" />
-                            {b.calculation.unitsConsumed} Units
-                          </span>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <div className="font-mono-bill text-2xl font-bold text-ink">
-                          {formatMoney(b.calculation.total)}
-                        </div>
-                        <div className="mt-1 inline-flex items-center rounded-lg bg-accent/5 px-2 py-1 text-[10px] font-bold uppercase tracking-widest text-accent opacity-0 transition-opacity group-hover:opacity-100">
-                          Review <ChevronRight className="h-3 w-3" />
-                        </div>
-                      </div>
-                    </Link>
-                    <button
-                      onClick={(e) => {
-                        e.preventDefault();
-                        setToDelete(b);
-                      }}
-                      className="absolute -right-3 -top-3 grid h-10 w-10 place-items-center rounded-full bg-white text-ink-muted shadow-xl ring-1 ring-paper-line opacity-0 transition-all hover:bg-destructive hover:text-white group-hover:opacity-100"
-                    >
-                      <Trash2 className="h-5 w-5" />
-                    </button>
-                  </div>
-                ))}
+                    );
+                  });
+                })()}
               </div>
             )}
           </div>

@@ -209,4 +209,18 @@ describe("calculateBill - custom tariff support", () => {
     // Total: 128.5 + 50 + 70 + 3.6 = 252.1
     expect(bill.total).toBe(252.1);
   });
+
+  it("includes arrears in total calculation", () => {
+    const bill = calculateBill({ totalUnits: 60, contractedLoadKW: 1, arrears: 500 });
+    // Without arrears:
+    // Category: LT1A (<= 100 units)
+    // Energy: 50*1.95 + 10*3.10 = 97.5 + 31 = 128.5
+    // Fixed: 10 * 1 = 10
+    // Customer: 70
+    // Electricity Duty: 60 * 0.06 = 3.6
+    // Subtotal: 128.5 + 10 + 70 + 3.6 = 212.1
+    // Total: 212.1 + 500 (arrears) = 712.1
+    expect(bill.arrears).toBe(500);
+    expect(bill.total).toBe(712.1);
+  });
 });

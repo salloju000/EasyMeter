@@ -19,8 +19,8 @@ export function setCurrentUser(userId: string | null) {
   currentUserId = userId;
 }
 
-function getStorageKey(baseKey: string): string | null {
-  if (!currentUserId) return null;
+function getStorageKey(baseKey: string): string {
+  if (!currentUserId) return baseKey;
   return `${baseKey}.user.${currentUserId}`;
 }
 
@@ -77,7 +77,6 @@ export const AP_DEFAULT_TARIFF: TariffConfig = {
 export function loadTariff(): TariffConfig {
   try {
     const key = getStorageKey(TARIFF_BASE_KEY);
-    if (!key) return AP_DEFAULT_TARIFF;
     const raw = localStorage.getItem(key);
     if (!raw) return AP_DEFAULT_TARIFF;
     return { ...AP_DEFAULT_TARIFF, ...JSON.parse(raw) };
@@ -88,7 +87,6 @@ export function loadTariff(): TariffConfig {
 
 export function saveTariff(t: TariffConfig) {
   const key = getStorageKey(TARIFF_BASE_KEY);
-  if (!key) return;
   localStorage.setItem(key, JSON.stringify(t));
   syncFirebase(() => saveTariffToFirebase(t));
 }
@@ -96,7 +94,6 @@ export function saveTariff(t: TariffConfig) {
 export function loadBills(): Bill[] {
   try {
     const key = getStorageKey(BILLS_BASE_KEY);
-    if (!key) return [];
     const raw = localStorage.getItem(key);
     if (!raw) return [];
     const arr = JSON.parse(raw) as Bill[];
@@ -108,7 +105,6 @@ export function loadBills(): Bill[] {
 
 export function saveBill(bill: Bill) {
   const key = getStorageKey(BILLS_BASE_KEY);
-  if (!key) return;
   const all = loadBills().filter((b) => b.id !== bill.id);
   all.unshift(bill);
   localStorage.setItem(key, JSON.stringify(all));
@@ -117,7 +113,6 @@ export function saveBill(bill: Bill) {
 
 export function deleteBill(id: string) {
   const key = getStorageKey(BILLS_BASE_KEY);
-  if (!key) return;
   const all = loadBills().filter((b) => b.id !== id);
   localStorage.setItem(key, JSON.stringify(all));
   syncFirebase(() => deleteBillFromFirebase(id));
@@ -132,6 +127,11 @@ export function getLatestBillFor(tenantName: string): Bill | undefined {
   return loadBills().find((b) => key(b.tenantName) === key(tenantName));
 }
 
+export function getPreviousBillFor(tenantName: string, currentBillId?: string): Bill | undefined {
+  const key = (s: string) => s.trim().toLowerCase();
+  return loadBills().find((b) => key(b.tenantName) === key(tenantName) && b.id !== currentBillId);
+}
+
 export function uid(): string {
   if (typeof crypto !== "undefined" && crypto.randomUUID) {
     return crypto.randomUUID().slice(0, 8) + Date.now().toString(36).slice(-4);
@@ -144,7 +144,6 @@ export function uid(): string {
 export function loadTenants(): Tenant[] {
   try {
     const key = getStorageKey(TENANTS_BASE_KEY);
-    if (!key) return [];
     const raw = localStorage.getItem(key);
     if (!raw) return [];
     const arr = JSON.parse(raw) as Tenant[];
@@ -156,7 +155,6 @@ export function loadTenants(): Tenant[] {
 
 export function saveTenant(t: Tenant) {
   const key = getStorageKey(TENANTS_BASE_KEY);
-  if (!key) return;
   const all = loadTenants().filter((x) => x.id !== t.id);
   all.push(t);
   localStorage.setItem(key, JSON.stringify(all));
@@ -165,7 +163,6 @@ export function saveTenant(t: Tenant) {
 
 export function deleteTenant(id: string) {
   const key = getStorageKey(TENANTS_BASE_KEY);
-  if (!key) return;
   const all = loadTenants().filter((x) => x.id !== id);
   localStorage.setItem(key, JSON.stringify(all));
   syncFirebase(() => deleteTenantFromFirebase(id));

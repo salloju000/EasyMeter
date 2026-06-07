@@ -26,6 +26,7 @@ import {
   Pencil,
   Trash2,
   MessageCircle,
+  PlusCircle,
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { formatMoney } from "@/lib/calc";
@@ -118,6 +119,9 @@ const BillDetail = () => {
     if (bill.calculation.lateFee > 0) {
       lines.push(`• Late Fee: ${formatMoney(bill.calculation.lateFee, sym)}`);
     }
+    if (bill.arrears && bill.arrears > 0) {
+      lines.push(`• Arrears (Unpaid Dues): ${formatMoney(bill.arrears, sym)}`);
+    }
 
     lines.push(
       ``,
@@ -201,6 +205,14 @@ const BillDetail = () => {
             onClick={() => setConfirmOpen(true)}
           >
             <Trash2 className="h-4 w-4" /> Delete
+          </Button>
+        </div>
+
+        <div className="mt-4">
+          <Button asChild className="w-full h-14 gap-2 bg-gradient-accent text-accent-foreground shadow-accent transition-all hover:scale-[0.98]">
+            <Link to={`/new?tenant=${encodeURIComponent(bill.tenantName)}`}>
+              <PlusCircle className="h-5 w-5" /> Generate Next Statement
+            </Link>
           </Button>
         </div>
       </main>

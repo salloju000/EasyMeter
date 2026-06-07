@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
 import { AppHeader } from "@/components/AppHeader";
 import { Button } from "@/components/ui/button";
@@ -25,6 +25,8 @@ import { calculateBill, formatMoney } from "@/lib/calc";
 import {
   getBill,
   getLatestBillFor,
+  getPreviousBillFor,
+  loadBills,
   loadTariff,
   loadTenants,
   saveBill,
@@ -62,6 +64,22 @@ const addDaysISO = (days: number) => {
   return d.toISOString();
 };
 
+const formatMonthShort = (m: string) => {
+  const parts = m.split("-").map(Number);
+  const [y, mm, dd] = parts;
+  if (parts.length === 3) {
+    return new Date(y, (mm || 1) - 1, dd).toLocaleDateString("en-IN", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+  }
+  return new Date(y, (mm || 1) - 1, 1).toLocaleDateString("en-IN", {
+    month: "short",
+    year: "numeric",
+  });
+};
+
 const NewBill = () => {
   const navigate = useNavigate();
   const { id: editId } = useParams();
@@ -75,9 +93,28 @@ const NewBill = () => {
     setTenants(loadTenants());
   }, [user?.uid]);
 
+  const [searchParams] = useSearchParams();
+  const prefillTenant = searchParams.get("tenant") ?? "";
+  
   const existing = useMemo(() => (editId ? getBill(editId) : undefined), [editId, user?.uid]);
 
-  const [tenantName, setTenantName] = useState(existing?.tenantName ?? "");
+  const autoIncMonth = useMemo(() => {
+    if (existing) return existing.billingMonth;
+    if (!prefillTenant) return localDateStr();
+    const last = getLatestBillFor(prefillTenant);
+    if (!last) return localDateStr();
+    
+    // Increment last.billingMonth by 1 month
+    const d = new Date(last.billingMonth);
+    if (isNaN(d.getTime())) return localDateStr();
+    d.setMonth(d.getMonth() + 1);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const dd = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${dd}`;
+  }, [existing, prefillTenant]);
+
+  const [tenantName, setTenantName] = useState(existing?.tenantName ?? prefillTenant);
   const [meterId, setMeterId] = useState(existing?.meterId ?? "");
   const [phone, setPhone] = useState("");
   const [previousReading, setPreviousReading] = useState<string>(
@@ -90,7 +127,7 @@ const NewBill = () => {
   const [maxReading, setMaxReading] = useState<string>(
     existing?.maxReading ? String(existing.maxReading) : "10000"
   );
-  const [billingMonth, setBillingMonth] = useState(existing?.billingMonth ?? localDateStr());
+  const [billingMonth, setBillingMonth] = useState(autoIncMonth);
   const [interestOnED, setInterestOnED] = useState<string>(
     existing ? String(existing.calculation.interestOnED) : "0"
   );
@@ -109,6 +146,25 @@ const NewBill = () => {
   const [notes, setNotes] = useState(existing?.notes ?? "");
   const [tenantPickerOpen, setTenantPickerOpen] = useState(false);
 
+  // Previous bill context
+  const prevBill = useMemo(() => {
+    if (!tenantName.trim()) return undefined;
+    return getPreviousBillFor(tenantName, existing?.id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tenantName, existing?.id, user?.uid]);
+
+  const [carryOverArrears, setCarryOverArrears] = useState<boolean>(
+    existing ? (existing.arrears ?? 0) > 0 : true
+  );
+  const [arrears, setArrears] = useState<string>(
+    existing ? String(existing.arrears ?? 0) : "0"
+  );
+  // Track the tenant name we last auto-initialized arrears for,
+  // so we don't keep overriding manual edits on re-renders.
+  const [arrearsInitFor, setArrearsInitFor] = useState<string>(
+    existing?.tenantName?.trim().toLowerCase() ?? ""
+  );
+
   useEffect(() => {
     const t = tenants.find((x) => x.name.trim().toLowerCase() === tenantName.trim().toLowerCase());
     if (t?.phone && !phone) setPhone(t.phone);
@@ -123,6 +179,35 @@ const NewBill = () => {
       setPreviousReading(String(last.currentReading));
     }
   }, [tenantName, isEdit, previousReading]);
+
+  // Auto-initialize arrears when tenant changes (not on every render)
+  useEffect(() => {
+    if (isEdit) return;
+    const key = tenantName.trim().toLowerCase();
+    if (!key) return;
+    // Only auto-set when the tenant selection actually changes
+    if (arrearsInitFor === key) return;
+    setArrearsInitFor(key);
+
+    if (prevBill && prevBill.paymentStatus === "unpaid") {
+      setCarryOverArrears(true);
+      setArrears(String(prevBill.calculation.total));
+    } else {
+      setCarryOverArrears(false);
+      setArrears("0");
+    }
+  }, [tenantName, prevBill, isEdit, arrearsInitFor]);
+
+  // When user toggles the carry-over switch, update the arrears value
+  useEffect(() => {
+    if (isEdit) return;
+    if (!prevBill || prevBill.paymentStatus !== "unpaid") return;
+    if (carryOverArrears) {
+      setArrears(String(prevBill.calculation.total));
+    } else {
+      setArrears("0");
+    }
+  }, [carryOverArrears, isEdit, prevBill]);
 
   const prev = Number(previousReading) || 0;
   const curr = Number(currentReading) || 0;
@@ -144,6 +229,7 @@ const NewBill = () => {
         surcharge: 0,
         lossGain: 0,
         lateFee: 0,
+        arrears: 0,
         total: 0,
         unitsConsumed: 0,
         breakdown: [],
@@ -156,8 +242,9 @@ const NewBill = () => {
       interestOnED: Number(interestOnED) || 0,
       surchargePerUnit: Number(surchargePerUnit) || 0,
       lossGainPercent: Number(lossGainPercent) || 0,
+      arrears: Number(arrears) || 0,
     }, tariff);
-  }, [units, contractedLoadKW, lateDays, interestOnED, surchargePerUnit, lossGainPercent, tariff, previousReading, currentReading]);
+  }, [units, contractedLoadKW, lateDays, interestOnED, surchargePerUnit, lossGainPercent, arrears, tariff, previousReading, currentReading]);
 
   const validationError = (): string | null => {
     if (!tenantName.trim()) return "Tenant name is required.";
@@ -182,8 +269,31 @@ const NewBill = () => {
     upsertTenantFromBill(tenantName, meterId.trim() || undefined, phone.trim() || undefined);
     setTenants(loadTenants());
 
+    const getYM = (iso: string) => iso.slice(0, 7);
+    const targetYM = getYM(billingMonth);
+    
+    let billId = existing?.id;
+    let billCreatedAt = existing?.createdAt;
+    
+    if (!billId) {
+      // Find if we already have a bill for this tenant in this exact month (YYYY-MM)
+      // to prevent duplicating statements for the same billing cycle.
+      const existingForMonth = loadBills().find(
+        (b) => b.tenantName.trim().toLowerCase() === tenantName.trim().toLowerCase() &&
+               getYM(b.billingMonth) === targetYM
+      );
+      
+      if (existingForMonth) {
+        billId = existingForMonth.id;
+        billCreatedAt = existingForMonth.createdAt;
+      } else {
+        billId = uid();
+        billCreatedAt = todayISO();
+      }
+    }
+
     const bill: Bill = {
-      id: existing?.id ?? uid(),
+      id: billId,
       tenantName: tenantName.trim(),
       meterId: meterId.trim() || undefined,
       previousReading: prev,
@@ -197,7 +307,12 @@ const NewBill = () => {
       notes: notes.trim() || undefined,
       isRollover,
       maxReading: isRollover ? maxR : undefined,
-      createdAt: existing?.createdAt ?? todayISO(),
+      previousBillId: prevBill?.id,
+      previousBillMonth: prevBill?.billingMonth,
+      previousBillAmount: prevBill?.calculation.total,
+      previousBillStatus: prevBill?.paymentStatus,
+      arrears: Number(arrears) || undefined,
+      createdAt: billCreatedAt ?? todayISO(),
     };
     saveBill(bill);
     toast({
@@ -407,6 +522,94 @@ const NewBill = () => {
               </div>
             </Card>
 
+            {/* Previous Month Statement & Arrears Card */}
+            <Card className="overflow-hidden border-none shadow-card ring-1 ring-paper-line">
+              <div className="bg-secondary/50 px-6 py-4">
+                <div className="flex items-center gap-2">
+                  <History className="h-4 w-4 text-accent" />
+                  <h2 className="font-display text-lg font-bold text-ink">Previous Statement & Arrears</h2>
+                </div>
+              </div>
+              <div className="p-6 space-y-4">
+                {prevBill ? (
+                  <div className="rounded-2xl border border-paper-line bg-secondary/20 p-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                      <div>
+                        <div className="text-[10px] font-bold uppercase tracking-widest text-ink-muted">Previous Statement</div>
+                        <div className="mt-1 font-display text-base font-bold text-ink">
+                          {formatMonthShort(prevBill.billingMonth)}
+                        </div>
+                        <div className="text-xs text-ink-muted mt-0.5">
+                          Bill ID: <span className="font-mono-bill">{prevBill.id.slice(0, 8).toUpperCase()}</span> · {prevBill.calculation.unitsConsumed} kWh
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <div className="text-right">
+                          <div className="text-[10px] font-bold uppercase tracking-widest text-ink-muted">Amount</div>
+                          <div className="mt-1 font-mono-bill text-base font-bold text-ink">
+                            {formatMoney(prevBill.calculation.total, tariff.currencySymbol)}
+                          </div>
+                        </div>
+                        <div>
+                          {prevBill.paymentStatus === "paid" ? (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-success/15 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider text-success">
+                              <ShieldCheck className="h-3.5 w-3.5" /> Settled
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-warning/15 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider text-warning">
+                              <AlertTriangle className="h-3.5 w-3.5" /> Unpaid
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {prevBill.paymentStatus === "unpaid" && (
+                      <div className="mt-4 pt-4 border-t border-paper-line/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div>
+                          <h4 className="text-xs font-bold text-ink">Carry forward unpaid dues?</h4>
+                          <p className="text-[11px] text-ink-muted">This adds {formatMoney(prevBill.calculation.total, tariff.currencySymbol)} to the current statement total.</p>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className="text-xs font-bold text-ink-muted uppercase tracking-widest">Auto Carry</span>
+                          <Switch 
+                            checked={carryOverArrears} 
+                            onCheckedChange={setCarryOverArrears} 
+                            className="data-[state=checked]:bg-accent"
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="rounded-2xl border border-dashed border-paper-line bg-secondary/10 p-5 text-center">
+                    <p className="text-xs text-ink-muted leading-relaxed">
+                      No previous billing statement found for <strong>{tenantName || "this tenant"}</strong>. <br />
+                      This will be treated as their first statement, or there is no historical record in this app.
+                    </p>
+                  </div>
+                )}
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Field label="Arrears / Previous Balance (₹)">
+                    <Input
+                      inputMode="decimal"
+                      value={arrears}
+                      onChange={(e) => setArrears(e.target.value)}
+                      placeholder="0.00"
+                      className="h-11 font-mono-bill bg-white"
+                    />
+                  </Field>
+                  <div className="rounded-2xl bg-secondary/30 px-4 py-3 flex flex-col justify-center border border-paper-line">
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-ink-muted">Effective Arrears</span>
+                    <span className="mt-1 font-mono-bill text-lg font-bold text-ink">
+                      {formatMoney(Number(arrears) || 0, tariff.currencySymbol)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </Card>
+
             {/* Financial Adjustments Card */}
             <Card className="overflow-hidden border-none shadow-card ring-1 ring-paper-line">
               <div className="bg-secondary/50 px-6 py-4">
@@ -477,6 +680,12 @@ const NewBill = () => {
                   <div className="flex justify-between text-sm">
                     <span className="text-ink-muted">Surcharges</span>
                     <span className="font-bold text-ink">{formatMoney(preview.customerCharges)}</span>
+                  </div>
+                )}
+                {(Number(arrears) || 0) > 0 && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-warning">Arrears</span>
+                    <span className="font-bold text-warning">{formatMoney(Number(arrears) || 0)}</span>
                   </div>
                 )}
                 <div className="my-4 border-t border-dashed border-paper-line" />

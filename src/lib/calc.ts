@@ -75,10 +75,11 @@ export interface DomesticBillInput {
   interestOnED?: number;       // Direct amount (₹) — user-entered
   surchargePerUnit?: number;   // Rate per unit (₹/kWh)
   lossGainPercent?: number;    // % on (energy + fixed + surcharge); positive = debit, negative = credit
+  arrears?: number;            // Carry-forward unpaid dues
 }
 
 export function calculateBill(input: DomesticBillInput, tariff?: TariffConfig): BillCalculation {
-  const { totalUnits, contractedLoadKW, daysLate = 0, interestOnED = 0, surchargePerUnit = 0, lossGainPercent = 0 } = input;
+  const { totalUnits, contractedLoadKW, daysLate = 0, interestOnED = 0, surchargePerUnit = 0, lossGainPercent = 0, arrears = 0 } = input;
 
   const category = findCategory(TSSPDCL_DOMESTIC_2025_26, totalUnits);
   const activeSlabs = tariff?.slabs && tariff.slabs.length > 0 ? tariff.slabs : category.slabs;
@@ -121,10 +122,11 @@ export function calculateBill(input: DomesticBillInput, tariff?: TariffConfig): 
       : TSSPDCL_DOMESTIC_2025_26.dpsPerMonth.LT1B / 30;
   const lateFeePerDay = tariff?.lateFeePerDay ?? defaultLateFeePerDay;
   const lateFee = round2(daysLate > 0 ? lateFeePerDay * daysLate : 0);
+  const arrearsAmount = round2(arrears);
 
   const total = round2(
     energyCharge + fixedCharge + customerCharge + electricityDuty +
-    extrasTotal + interestOnEDAmount + surchargeAmount + lossGainAmount + lateFee
+    extrasTotal + interestOnEDAmount + surchargeAmount + lossGainAmount + lateFee + arrearsAmount
   );
 
   return {
@@ -140,6 +142,7 @@ export function calculateBill(input: DomesticBillInput, tariff?: TariffConfig): 
     lossGain: lossGainAmount,
     lossGainPercent,
     lateFee,
+    arrears: arrearsAmount,
     total,
     unitsConsumed: totalUnits,
     extras,
