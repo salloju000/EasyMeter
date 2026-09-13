@@ -1,0 +1,140 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* EasyMeter design system — inspired by official EB bill stationery.
+   Warm paper background, deep ink text, electric amber accent. HSL only. */
+
+@layer base {
+  :root {
+    --background: 40 33% 97%;
+    --foreground: 220 35% 12%;
+
+    --paper: 42 45% 96%;
+    --paper-line: 38 30% 88%;
+    --ink: 220 40% 14%;
+    --ink-muted: 220 15% 38%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 220 35% 12%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 35% 12%;
+
+    --primary: 220 65% 18%;
+    --primary-foreground: 42 60% 96%;
+
+    --secondary: 38 30% 92%;
+    --secondary-foreground: 220 40% 14%;
+
+    --muted: 38 25% 93%;
+    --muted-foreground: 220 12% 42%;
+
+    --accent: 38 92% 50%;
+    --accent-foreground: 220 50% 12%;
+    --accent-glow: 42 100% 62%;
+
+    --success: 142 55% 38%;
+    --success-foreground: 0 0% 100%;
+
+    --warning: 32 95% 50%;
+    --warning-foreground: 0 0% 100%;
+
+    --destructive: 0 75% 48%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 38 25% 85%;
+    --input: 38 25% 88%;
+    --ring: 220 65% 25%;
+
+    --radius: 0.75rem;
+
+    --gradient-hero: linear-gradient(135deg, hsl(220 65% 18%) 0%, hsl(220 70% 28%) 100%);
+    --gradient-accent: linear-gradient(135deg, hsl(38 92% 50%) 0%, hsl(28 95% 55%) 100%);
+    --gradient-paper: linear-gradient(180deg, hsl(42 45% 97%) 0%, hsl(38 35% 94%) 100%);
+
+    --shadow-soft: 0 1px 2px hsl(220 30% 15% / 0.04), 0 4px 12px hsl(220 30% 15% / 0.06);
+    --shadow-card: 0 2px 4px hsl(220 30% 15% / 0.04), 0 12px 32px hsl(220 30% 15% / 0.08);
+    --shadow-bill: 0 1px 0 hsl(38 30% 80%), 0 8px 24px hsl(220 30% 15% / 0.12);
+    --shadow-accent: 0 8px 24px hsl(38 92% 50% / 0.35);
+
+    --transition-base: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-primary: 240 5.9% 10%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 240 4.8% 95.9%;
+    --sidebar-accent-foreground: 240 5.9% 10%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+
+  .dark {
+    --background: 220 30% 8%;
+    --foreground: 42 40% 95%;
+    --paper: 220 25% 12%;
+    --paper-line: 220 20% 18%;
+    --ink: 42 40% 95%;
+    --ink-muted: 220 10% 65%;
+    --card: 220 28% 11%;
+    --card-foreground: 42 40% 95%;
+    --popover: 220 28% 11%;
+    --popover-foreground: 42 40% 95%;
+    --primary: 38 92% 55%;
+    --primary-foreground: 220 50% 12%;
+    --secondary: 220 22% 16%;
+    --secondary-foreground: 42 40% 95%;
+    --muted: 220 22% 16%;
+    --muted-foreground: 220 10% 65%;
+    --accent: 38 92% 55%;
+    --accent-foreground: 220 50% 12%;
+    --destructive: 0 70% 50%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 220 20% 20%;
+    --input: 220 20% 18%;
+    --ring: 38 92% 55%;
+  }
+}
+
+@layer base {
+  * { @apply border-border; }
+  html, body, #root { height: 100%; }
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    font-feature-settings: "cv11", "ss01";
+  }
+  .font-display { font-family: 'Space Grotesk', 'Inter', system-ui, sans-serif; letter-spacing: -0.02em; }
+  .font-mono-bill { font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace; }
+}
+
+@layer components {
+  .bill-paper {
+    background: var(--gradient-paper);
+    box-shadow: var(--shadow-bill);
+    border: 1px solid hsl(var(--paper-line));
+    position: relative;
+  }
+  .bill-paper::before {
+    content: "";
+    position: absolute; inset: 0;
+    background-image: repeating-linear-gradient(
+      0deg,
+      transparent 0,
+      transparent 27px,
+      hsl(var(--paper-line) / 0.5) 27px,
+      hsl(var(--paper-line) / 0.5) 28px
+    );
+    pointer-events: none;
+    mix-blend-mode: multiply;
+    opacity: 0.4;
+  }
+  .ticket-edge {
+    --c: hsl(var(--background));
+    -webkit-mask:
+      radial-gradient(8px at 8px 50%, #0000 98%, #000) -8px 0/16px 100%;
+            mask:
+      radial-gradient(8px at 8px 50%, #0000 98%, #000) -8px 0/16px 100%;
+  }
+}
