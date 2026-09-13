@@ -65,6 +65,7 @@ export interface Bill {
   billingDate: string;  // ISO
   dueDate: string;      // ISO
   paymentStatus: PaymentStatus;
+  paidAt?: string;      // ISO timestamp when marked paid
   tariff: TariffConfig;
   calculation: BillCalculation;
   notes?: string;

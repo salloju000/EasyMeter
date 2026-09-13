@@ -6,9 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { loadBills, loadTenants } from "@/lib/storage";
 import { formatMoney, formatUnits } from "@/lib/calc";
+import { PaymentStatusPill } from "@/components/PaymentStatusPill";
 import {
   ArrowLeft,
-  CheckCircle2,
   Clock,
   FileText,
   Hash,
@@ -163,7 +163,7 @@ const TenantHistory = () => {
                         <span className="truncate font-semibold text-ink">
                           {formatMonthShort(b.billingMonth)}
                         </span>
-                        <StatusPill status={b.paymentStatus} />
+                        <PaymentStatusPill bill={b} />
                       </div>
                       <div className="mt-0.5 truncate text-xs text-ink-muted">
                         {b.calculation.unitsConsumed} kWh ·{" "}
@@ -207,21 +207,6 @@ function Stat({
       </div>
       <div className={`mt-1 truncate font-mono-bill text-sm font-bold ${toneClass}`}>{value}</div>
     </div>
-  );
-}
-
-function StatusPill({ status }: { status: "paid" | "unpaid" }) {
-  if (status === "paid") {
-    return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-success/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-success">
-        <CheckCircle2 className="h-3 w-3" /> Paid
-      </span>
-    );
-  }
-  return (
-    <span className="inline-flex items-center gap-1 rounded-full bg-warning/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-warning">
-      <Clock className="h-3 w-3" /> Unpaid
-    </span>
   );
 }
 

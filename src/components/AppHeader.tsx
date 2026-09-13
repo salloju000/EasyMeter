@@ -13,6 +13,7 @@ export const AppHeader = () => {
     { to: "/", label: "Bills" },
     { to: "/new", label: "New" },
     { to: "/tenants", label: "Tenants" },
+    { to: "/analytics", label: "Analytics" },
     { to: "/tariff", label: "Tariff" },
   ];
   return (

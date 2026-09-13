@@ -1,0 +1,66 @@
+name: easymeter_mobile
+description: EasyMeter — electricity sub-metering & tenant billing, mobile app.
+publish_to: 'none'
+version: 0.1.0+1
+
+environment:
+  sdk: '>=3.4.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # State management
+  flutter_riverpod: ^2.5.1
+  riverpod_annotation: ^2.3.5
+
+  # Routing
+  go_router: ^14.2.0
+
+  # Local persistence (relational — mirrors Tenant/Bill/Tariff relations)
+  drift: ^2.19.0
+  sqlite3_flutter_libs: ^0.5.24
+  path_provider: ^2.1.4
+  path: ^1.9.0
+  shared_preferences: ^2.3.2
+
+  # Immutable models / codegen
+  freezed_annotation: ^2.4.4
+  json_annotation: ^4.9.0
+
+  # Optional cloud sync (mirrors firebase.ts) — wired later, behind a feature flag
+  firebase_core: ^3.4.0
+  firebase_auth: ^5.2.0
+  cloud_firestore: ^5.4.0
+  google_sign_in: ^6.2.1
+
+  # PDF / sharing (native replacement for jsPDF + html2canvas)
+  pdf: ^3.11.1
+  printing: ^5.13.2
+  share_plus: ^10.0.2
+
+  # Charts (replacement for recharts)
+  fl_chart: ^0.68.0
+
+  # Formatting / utils
+  intl: ^0.19.0
+  url_launcher: ^6.3.0
+  uuid: ^4.5.0
+
+  cupertino_icons: ^1.0.8
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+  build_runner: ^2.4.12
+  freezed: ^2.5.7
+  json_serializable: ^6.8.0
+  riverpod_generator: ^2.4.3
+  drift_dev: ^2.19.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/images/

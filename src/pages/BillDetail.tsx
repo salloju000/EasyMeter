@@ -136,9 +136,11 @@ const BillDetail = () => {
   };
 
   const togglePaid = () => {
+    const willBePaid = bill.paymentStatus !== "paid";
     const next: Bill = {
       ...bill,
-      paymentStatus: bill.paymentStatus === "paid" ? "unpaid" : "paid",
+      paymentStatus: willBePaid ? "paid" : "unpaid",
+      paidAt: willBePaid ? new Date().toISOString() : undefined,
     };
     saveBill(next);
     setBill(next);

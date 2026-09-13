@@ -17,6 +17,8 @@ import {
 import { loadBills, deleteBill, findTenantByName } from "@/lib/storage";
 import type { Bill } from "@/lib/types";
 import { formatMoney, formatUnits } from "@/lib/calc";
+import { getBillStatus } from "@/lib/billStatus";
+import { PaymentStatusPill } from "@/components/PaymentStatusPill";
 import {
   Plus,
   FileText,
@@ -25,6 +27,7 @@ import {
   IndianRupee,
   CheckCircle2,
   Clock,
+  AlertTriangle,
   TrendingUp,
   ChevronRight,
   ArrowUpRight,
@@ -60,8 +63,10 @@ const Index = () => {
     const pending = bills
       .filter((b) => b.paymentStatus === "unpaid")
       .reduce((s, b) => s + b.calculation.total, 0);
+    const overdueBills = bills.filter((b) => getBillStatus(b) === "overdue");
+    const overdueAmount = overdueBills.reduce((s, b) => s + b.calculation.total, 0);
     const totalUnits = bills.reduce((s, b) => s + b.calculation.unitsConsumed, 0);
-    return { totalCollected, pending, totalUnits };
+    return { totalCollected, pending, overdueCount: overdueBills.length, overdueAmount, totalUnits };
   }, [bills]);
 
   return (
@@ -124,6 +129,15 @@ const Index = () => {
               className="bg-accent text-accent-foreground border-none shadow-accent"
               accentColor="text-white"
             />
+            {stats.overdueCount > 0 && (
+              <BentoStatCard
+                label={`Overdue (${stats.overdueCount})`}
+                value={formatMoney(stats.overdueAmount)}
+                icon={<AlertTriangle className="h-6 w-6" />}
+                className="bg-destructive text-destructive-foreground border-none shadow-lg shadow-destructive/20"
+                accentColor="text-white"
+              />
+            )}
           </div>
         </div>
 
@@ -173,7 +187,7 @@ const Index = () => {
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-3">
                               <span className="truncate font-display text-xl font-bold text-ink">{b.tenantName}</span>
-                              <StatusPill status={b.paymentStatus} />
+                              <PaymentStatusPill bill={b} />
                             </div>
                             <div className="mt-1 flex items-center gap-4 text-[13px] text-ink-muted">
                               <span className="flex items-center gap-1.5 font-medium">
@@ -299,23 +313,6 @@ function SidebarStatItem({ label, value, icon }: any) {
         </div>
       </div>
     </div>
-  );
-}
-
-function StatusPill({ status }: { status: "paid" | "unpaid" }) {
-  if (status === "paid") {
-    return (
-      <span className="inline-flex items-center gap-1.5 rounded-full bg-success/10 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-success">
-        <div className="h-1.5 w-1.5 rounded-full bg-success animate-pulse" />
-        Paid
-      </span>
-    );
-  }
-  return (
-    <span className="inline-flex items-center gap-1.5 rounded-full bg-warning/10 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-warning">
-      <div className="h-1.5 w-1.5 rounded-full bg-warning" />
-      Pending
-    </span>
   );
 }
 
